@@ -352,10 +352,14 @@ def add_conclusion(doc):
 def build_report(all_photos: list[dict], output_path: str, template_path: str = None):
     if template_path and Path(template_path).exists():
         doc = Document(template_path)
-        # Clear all body content, keep styles/header/footer
+        # Clear all body content but preserve the sectPr (section/page layout)
         body = doc.element.body
+        sectPr = body.find(qn("w:sectPr"))
         for child in list(body):
             body.remove(child)
+        # Re-attach sectPr so page layout/margins/headers are preserved
+        if sectPr is not None:
+            body.append(sectPr)
         print(f"Using template: {Path(template_path).name}")
     else:
         doc = Document()
