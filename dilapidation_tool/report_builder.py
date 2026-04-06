@@ -238,15 +238,22 @@ def add_conclusion(doc):
     set_font(r1, size=11)
 
 
-def build_report(all_photos: list[dict], output_path: str):
-    doc = Document()
-
-    # Page margins
-    for section in doc.sections:
-        section.top_margin = Cm(2)
-        section.bottom_margin = Cm(2)
-        section.left_margin = Cm(2.5)
-        section.right_margin = Cm(2.5)
+def build_report(all_photos: list[dict], output_path: str, template_path: str = None):
+    if template_path and Path(template_path).exists():
+        doc = Document(template_path)
+        # Clear all existing content but keep styles, headers, footers
+        body = doc.element.body
+        for child in list(body):
+            body.remove(child)
+        print(f"Using template: {Path(template_path).name}")
+    else:
+        doc = Document()
+        # Page margins
+        for section in doc.sections:
+            section.top_margin = Cm(2)
+            section.bottom_margin = Cm(2)
+            section.left_margin = Cm(2.5)
+            section.right_margin = Cm(2.5)
 
     add_cover_page(doc)
     add_contents(doc)

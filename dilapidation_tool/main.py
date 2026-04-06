@@ -8,6 +8,7 @@ from report_builder import build_report
 
 PHOTOS_DIR = Path(__file__).parent / "photos"
 OUTPUT_DIR = Path(__file__).parent / "output"
+TEMPLATE_PATH = Path(__file__).parent / "26066 - Council Assets (Surrounding 81-85 Campell Street, SURRYHILLS, NSW) - Pre-Construction Dilapidation Report.docx"
 CACHE_FILE = Path(__file__).parent / "output" / "photo_cache.json"
 
 
@@ -100,7 +101,7 @@ def main():
     output_filename = f"Dilapidation_Report_{ref_clean}.docx"
     output_path = OUTPUT_DIR / output_filename
 
-    build_report(all_photos, str(output_path))
+    build_report(all_photos, str(output_path), template_path=str(TEMPLATE_PATH))
 
     print("\nDone!")
     print(f"Output: {output_path}")
