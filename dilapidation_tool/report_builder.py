@@ -246,7 +246,7 @@ def add_photo_table_entry(doc, photo: dict):
 
     # Create single-column table (no borders)
     table = doc.add_table(rows=1, cols=1)
-    table.style = "Table Grid"
+    table.style = "Normal Table"
     cell = table.cell(0, 0)
 
     # Remove all borders
