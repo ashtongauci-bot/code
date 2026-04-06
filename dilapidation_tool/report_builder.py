@@ -129,8 +129,8 @@ def add_introduction(doc):
     ))
 
     for item in ["Surrounding Roads and Pathways (Building Side)", "Surrounding Roads and Pathways (Opposite Side)"]:
-        p = doc.add_paragraph(style="List Bullet")
-        run = p.add_run(item)
+        p = doc.add_paragraph()
+        run = p.add_run(f"• {item}")
         set_font(run, size=11)
 
     doc.add_paragraph()
