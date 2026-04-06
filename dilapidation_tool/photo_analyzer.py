@@ -2,8 +2,10 @@
 
 import anthropic
 import base64
+import io
 import json
 from pathlib import Path
+from PIL import Image
 from config import ANTHROPIC_API_KEY
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -43,11 +45,30 @@ Respond with JSON only, in this format:
 
 
 def encode_image(image_path: Path) -> tuple[str, str]:
-    suffix = image_path.suffix.lower()
-    media_types = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
-    media_type = media_types.get(suffix, "image/jpeg")
-    with open(image_path, "rb") as f:
-        data = base64.standard_b64encode(f.read()).decode("utf-8")
+    media_type = "image/jpeg"
+    max_bytes = 4 * 1024 * 1024  # 4MB to stay safely under the 5MB limit
+
+    with Image.open(image_path) as img:
+        # Convert to RGB (handles PNGs with transparency etc.)
+        img = img.convert("RGB")
+
+        # Resize if image is very large (max 2000px on longest side)
+        max_dim = 2000
+        if max(img.width, img.height) > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+
+        # Compress until under size limit
+        quality = 85
+        while quality >= 40:
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=quality)
+            if buffer.tell() <= max_bytes:
+                break
+            quality -= 10
+
+        buffer.seek(0)
+        data = base64.standard_b64encode(buffer.read()).decode("utf-8")
+
     return data, media_type
 
 
