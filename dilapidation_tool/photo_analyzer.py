@@ -6,7 +6,7 @@ import io
 import json
 from pathlib import Path
 from PIL import Image
-from config import ANTHROPIC_API_KEY
+from config import ANTHROPIC_API_KEY, PHOTO_WORKERS
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -107,7 +107,7 @@ def analyze_photo(image_path: Path) -> dict:
     return result
 
 
-def analyze_section(section_folder: Path, section_name: str, start_number: int = 1, max_workers: int = 5) -> list[dict]:
+def analyze_section(section_folder: Path, section_name: str, start_number: int = 1, max_workers: int = PHOTO_WORKERS) -> list[dict]:
     """Analyze all photos in a section folder in parallel and return list of photo records."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
