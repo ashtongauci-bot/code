@@ -2,9 +2,10 @@
 
 import json
 from pathlib import Path
-from config import PROJECT, PHOTO_SECTIONS
+from config import PROJECT, PHOTO_SECTIONS, GOOGLE_MAPS_API_KEY
 from photo_analyzer import analyze_section
 from report_builder import build_report
+from map_generator import generate_maps
 
 PHOTOS_DIR = Path(__file__).parent / "photos"
 OUTPUT_DIR = Path(__file__).parent / "output"
@@ -95,13 +96,25 @@ def main():
         return
 
     print(f"\nTotal photos processed: {len(all_photos)}")
+
+    # Generate site maps if Google Maps API key is configured
+    map_paths = {}
+    if GOOGLE_MAPS_API_KEY and GOOGLE_MAPS_API_KEY != "your-google-maps-api-key-here":
+        try:
+            map_paths = generate_maps(PHOTOS_DIR, OUTPUT_DIR)
+        except Exception as e:
+            print(f"  Warning: Map generation failed: {e}")
+            print("  Continuing without maps...")
+    else:
+        print("\nSkipping map generation (no Google Maps API key in config.py)")
+
     print("\nBuilding Word document...")
 
     ref_clean = PROJECT["ref"].replace("/", "-").replace("[", "").replace("]", "")
     output_filename = f"Dilapidation_Report_{ref_clean}.docx"
     output_path = OUTPUT_DIR / output_filename
 
-    build_report(all_photos, str(output_path), template_path=str(TEMPLATE_PATH))
+    build_report(all_photos, str(output_path), template_path=str(TEMPLATE_PATH), map_paths=map_paths)
 
     print("\nDone!")
     print(f"Output: {output_path}")

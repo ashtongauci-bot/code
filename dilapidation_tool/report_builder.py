@@ -173,7 +173,23 @@ def add_preamble(doc):
     doc.add_paragraph()
 
 
-def add_introduction(doc):
+def add_map_figure(doc, image_path: str, caption: str):
+    """Insert a map image with caption."""
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run()
+    try:
+        run.add_picture(image_path, width=Inches(6.0))
+    except Exception:
+        p.add_run(f"[Map image not found: {image_path}]")
+    cap = doc.add_paragraph()
+    cap.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run = cap.add_run(caption)
+    set_run(run, size=12, bold=True, italic=True)
+
+
+def add_introduction(doc, map_paths: dict = None):
+    map_paths = map_paths or {}
     add_section_heading(doc, "2.0 INTRODUCTION")
     add_body(doc, (
         f"The inspection focused conditions to the council assets that surround {PROJECT['address']}. "
@@ -181,10 +197,13 @@ def add_introduction(doc):
     ))
     doc.add_paragraph()
 
-    # Figure 1 placeholder
-    p = doc.add_paragraph()
-    run = p.add_run("Figure 1 – Site Locality Plan (Not to Scale)")
-    set_run(run, size=12, bold=True, italic=True)
+    # Figure 1 - Locality Plan
+    if map_paths.get("figure1"):
+        add_map_figure(doc, map_paths["figure1"], "Figure 1 – Site Locality Plan (Not to Scale)")
+    else:
+        p = doc.add_paragraph()
+        run = p.add_run("Figure 1 – Site Locality Plan (Not to Scale)")
+        set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
     add_body(doc, (
@@ -213,13 +232,17 @@ def add_introduction(doc):
 
     doc.add_paragraph()
 
-    # Figure 2 & 3 placeholders
-    p = doc.add_paragraph()
-    run = p.add_run("Figure 2 – Graph Depicting Pavement Rating System")
-    set_run(run, size=12, bold=True, italic=True)
+    # Figure 2 - Inspection Zone Map
+    if map_paths.get("figure2"):
+        add_map_figure(doc, map_paths["figure2"], "Figure 2 – Inspection Zone Map (Not to Scale)")
+    else:
+        p = doc.add_paragraph()
+        run = p.add_run("Figure 2 – Inspection Zone Map (Not to Scale)")
+        set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
 
+    # Figure 3 placeholder (pavement rating table)
     p = doc.add_paragraph()
     run = p.add_run("Figure 3 – Table Describing Pavement Rating System in More Detail")
     set_run(run, size=12, bold=True, italic=True)
@@ -349,7 +372,7 @@ def add_conclusion(doc):
     set_run(r1, size=12)
 
 
-def build_report(all_photos: list[dict], output_path: str, template_path: str = None):
+def build_report(all_photos: list[dict], output_path: str, template_path: str = None, map_paths: dict = None):
     if template_path and Path(template_path).exists():
         doc = Document(template_path)
         # Clear all body content but preserve the sectPr (section/page layout)
@@ -373,7 +396,7 @@ def build_report(all_photos: list[dict], output_path: str, template_path: str = 
     add_report_metadata(doc)
     add_contents(doc)
     add_preamble(doc)
-    add_introduction(doc)
+    add_introduction(doc, map_paths=map_paths)
     add_existing_conditions_intro(doc)
 
     sections_seen = []
