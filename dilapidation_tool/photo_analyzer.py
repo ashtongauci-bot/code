@@ -107,17 +107,19 @@ def analyze_photo(image_path: Path) -> dict:
     return result
 
 
-def analyze_section(section_folder: Path, section_name: str, start_number: int = 1) -> list[dict]:
-    """Analyze all photos in a section folder and return list of photo records."""
+def analyze_section(section_folder: Path, section_name: str, start_number: int = 1, max_workers: int = 5) -> list[dict]:
+    """Analyze all photos in a section folder in parallel and return list of photo records."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     image_extensions = {".jpg", ".jpeg", ".png", ".webp"}
     photos = sorted([p for p in section_folder.iterdir() if p.suffix.lower() in image_extensions])
 
-    results = []
-    for i, photo_path in enumerate(photos, start=start_number):
-        print(f"  Analyzing photo {i}: {photo_path.name}...")
+    def process(args):
+        i, photo_path = args
         try:
             analysis = analyze_photo(photo_path)
-            results.append({
+            print(f"  ✓ Photo {i}: {photo_path.name} -> Rating {analysis['rating']} ({analysis['condition']})")
+            return {
                 "number": i,
                 "path": str(photo_path),
                 "filename": photo_path.name,
@@ -125,11 +127,10 @@ def analyze_section(section_folder: Path, section_name: str, start_number: int =
                 "description": analysis["description"],
                 "rating": analysis["rating"],
                 "condition": analysis["condition"],
-            })
-            print(f"    -> Rating {analysis['rating']} ({analysis['condition']}): {analysis['description'][:80]}...")
+            }
         except Exception as e:
-            print(f"    -> ERROR analyzing {photo_path.name}: {e}")
-            results.append({
+            print(f"  ✗ Photo {i}: {photo_path.name} -> ERROR: {e}")
+            return {
                 "number": i,
                 "path": str(photo_path),
                 "filename": photo_path.name,
@@ -137,5 +138,14 @@ def analyze_section(section_folder: Path, section_name: str, start_number: int =
                 "description": f"[Could not analyze photo: {photo_path.name}]",
                 "rating": 0,
                 "condition": "Unknown",
-            })
-    return results
+            }
+
+    indexed = list(enumerate(photos, start=start_number))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(process, item): item for item in indexed}
+        raw_results = [f.result() for f in as_completed(futures)]
+
+    # Sort back into original order
+    raw_results.sort(key=lambda x: x["number"])
+    return raw_results
