@@ -1,124 +1,190 @@
-# report_builder.py - Builds the Word document in the correct report format
+# report_builder.py - Builds the Word document matching the IIE template format
 
 from docx import Document
-from docx.shared import Pt, Cm, RGBColor, Inches
+from docx.shared import Pt, Cm, RGBColor, Inches, Twips
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from pathlib import Path
 from config import PROJECT
 
+TNR = "Times New Roman"
 
-def set_font(run, bold=False, size=11, color=None):
+
+def set_run(run, size=None, bold=False, italic=False, underline=False, font_name=TNR):
+    run.font.name = font_name
+    if size:
+        run.font.size = Pt(size)
     run.bold = bold
-    run.font.size = Pt(size)
-    if color:
-        run.font.color.rgb = RGBColor(*color)
-
-
-def add_heading(doc, text, level=1, size=14, bold=True, align=WD_ALIGN_PARAGRAPH.LEFT):
-    p = doc.add_paragraph()
-    p.alignment = align
-    run = p.add_run(text)
-    set_font(run, bold=bold, size=size)
-    return p
-
-
-def add_body(doc, text, size=11):
-    p = doc.add_paragraph()
-    run = p.add_run(text)
-    set_font(run, size=size)
-    return p
+    run.italic = italic
+    run.underline = underline
 
 
 def add_cover_page(doc):
+    # Title
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("PRE-CONSTRUCTION DILAPIDATION REPORT")
+    set_run(run, size=18, bold=True, underline=True)
+
+    # "At"
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("At")
+    set_run(run, size=12)
+
+    # "Surrounding Council Assets"
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("Surrounding Council Assets")
+    set_run(run, size=18, bold=True)
+
+    # "Due to development at:"
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("Due to development at:")
+    set_run(run, size=12)
+
+    # Address
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run(PROJECT["address"])
+    set_run(run, size=18, bold=True)
+
+    doc.add_paragraph()
+
+    # Prepared For
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run(f"Prepared For: {PROJECT['client']}")
+    set_run(run, size=12, bold=True)
+
     doc.add_paragraph()
     doc.add_paragraph()
-
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = title.add_run("PRE-CONSTRUCTION DILAPIDATION REPORT")
-    set_font(run, bold=True, size=16)
-
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = subtitle.add_run("At\nSurrounding Council Assets\nDue to development at:")
-    set_font(run, size=12)
-
-    addr = doc.add_paragraph()
-    addr.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = addr.add_run(PROJECT["address"])
-    set_font(run, bold=True, size=13)
-
     doc.add_paragraph()
 
-    prep = doc.add_paragraph()
-    prep.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = prep.add_run(f"Prepared For: {PROJECT['client']}")
-    set_font(run, size=12)
-
-    doc.add_paragraph()
-    doc.add_paragraph()
-
+    # Metadata block (bottom of cover)
     for label, value in [
         ("Prepared By:", PROJECT["inspector_name"]),
         ("Date:", PROJECT["report_date"]),
         ("Ref:", PROJECT["ref"]),
     ]:
-        row = doc.add_paragraph()
-        r1 = row.add_run(f"{label:<20}")
-        set_font(r1, bold=True, size=11)
-        r2 = row.add_run(value)
-        set_font(r2, size=11)
+        p = doc.add_paragraph()
+        run = p.add_run(f"{label}\t{value}")
+        set_run(run, size=12)
 
     doc.add_page_break()
+
+
+def add_report_metadata(doc):
+    """Second page - report name, inspection date, client."""
+    for label, value in [
+        ("Name:", f"Pre-Construction Dilapidation Report – {PROJECT['address']} – Council Assets Surrounding"),
+        ("Date of Inspection:", PROJECT["inspection_date"]),
+        ("To:", PROJECT["client"]),
+    ]:
+        p = doc.add_paragraph()
+        r1 = p.add_run(f"{label}\t")
+        set_run(r1, size=12, bold=True)
+        r2 = p.add_run(value)
+        set_run(r2, size=12)
+
+    doc.add_paragraph()
 
 
 def add_contents(doc):
-    add_heading(doc, "CONTENTS", size=14)
-    doc.add_paragraph()
-    for section, page in [("1.0 PREAMBLE", "3"), ("2.0 INTRODUCTION", "3"), ("3.0 EXISTING CONDITIONS", "6"), ("4.0 CONCLUSION", "")]:
+    # "CONTENTS" heading
+    p = doc.add_paragraph()
+    try:
+        p.style = doc.styles["TOC Heading"]
+    except KeyError:
+        pass
+    run = p.add_run("CONTENTS")
+    set_run(run, size=12, bold=True)
+
+    # TOC entries
+    for entry in [
+        "1.0 PREAMBLE",
+        "2.0 INTRODUCTION",
+        "3.0 EXISTING CONDITIONS",
+        "4.0 CONCLUSION",
+    ]:
         p = doc.add_paragraph()
-        run = p.add_run(f"{section}")
-        set_font(run, size=11)
+        run = p.add_run(entry)
+        set_run(run, size=12, italic=True)
+
     doc.add_page_break()
 
 
+def add_section_heading(doc, text):
+    """e.g. '1.0 PREAMBLE' - uses Heading 1 style."""
+    p = doc.add_paragraph(style="Heading 1")
+    run = p.add_run(text)
+    set_run(run, bold=True)
+    run.font.color.rgb = RGBColor(0, 0, 0)
+    return p
+
+
+def add_sub_label(doc, text):
+    """e.g. 'NORTHERN END', 'SURROUNDING ROAD AND PATHWAYS' - 9pt bold."""
+    p = doc.add_paragraph()
+    run = p.add_run(text)
+    set_run(run, size=9, bold=True)
+    return p
+
+
+def add_body(doc, text):
+    """Standard body paragraph - Times New Roman 12pt."""
+    p = doc.add_paragraph()
+    run = p.add_run(text)
+    set_run(run, size=12)
+    return p
+
+
+def add_bullet(doc, text):
+    """Bullet point paragraph."""
+    p = doc.add_paragraph()
+    run = p.add_run(f"•\t{text}")
+    set_run(run, size=12)
+    return p
+
+
 def add_preamble(doc):
-    add_heading(doc, "1.0 PREAMBLE", size=13)
-    text = (
+    add_section_heading(doc, "1.0 PREAMBLE")
+    add_body(doc, (
         f"This pre-construction dilapidation report is based on visual inspection only. "
         f"The purpose of this report is to provide a photographic record of the Council Assets along "
         f"{PROJECT['streets_inspected']}. The council assets include roads and footpaths within the zone of "
-        f"influence of the proposed construction site at {PROJECT['address']}.\n\n"
+        f"influence of the proposed construction site at {PROJECT['address']}."
+    ))
+    add_body(doc, (
         f"This report also gives a brief descriptive record of any defects noted on the date of our inspection. "
         f"The inspection included all site features and accessible areas of the council assets as photographed "
-        f"and identified within this report. Photos show items of note, such as cracks, as well as some overviews.\n\n"
+        f"and identified within this report. Photos show items of note, such as cracks, as well as some overviews."
+    ))
+    add_body(doc, (
         f"A total of {PROJECT['total_photos']} photos was taken during our inspection ({PROJECT['inspection_date']}). "
-        f"A full set of photos can be downloaded via the following link: {PROJECT['photo_link']}\n\n"
-        f"This report is not a structural or civil engineering report. It is the property owner's responsibility "
-        f"to seek further structural engineering advice on any defective elements which have been noted in this report."
-    )
-    add_body(doc, text)
+        f"A full set of photos can be downloaded via the following link: {PROJECT['photo_link']}"
+    ))
+    add_body(doc, (
+        "This report is not a structural or civil engineering report. It is the property owner's responsibility "
+        "to seek further structural engineering advice on any defective elements which have been noted in this report."
+    ))
     doc.add_paragraph()
 
 
 def add_introduction(doc):
-    add_heading(doc, "2.0 INTRODUCTION", size=13)
-    text = (
+    add_section_heading(doc, "2.0 INTRODUCTION")
+    add_body(doc, (
         f"The inspection focused conditions to the council assets that surround {PROJECT['address']}. "
         f"The extent of which is highlighted in Figure 1 below."
-    )
-    add_body(doc, text)
+    ))
     doc.add_paragraph()
 
-    # Placeholder for Figure 1
-    fig1 = doc.add_paragraph()
-    fig1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = fig1.add_run("[Figure 1 – Site Locality Plan (Not to Scale) – Insert map here]")
-    run.italic = True
-    set_font(run, size=10)
+    # Figure 1 placeholder
+    p = doc.add_paragraph()
+    run = p.add_run("Figure 1 – Site Locality Plan (Not to Scale)")
+    set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
     add_body(doc, (
@@ -128,10 +194,8 @@ def add_introduction(doc):
         "we discuss them in the following sub-categories:"
     ))
 
-    for item in ["Surrounding Roads and Pathways (Building Side)", "Surrounding Roads and Pathways (Opposite Side)"]:
-        p = doc.add_paragraph()
-        run = p.add_run(f"• {item}")
-        set_font(run, size=11)
+    add_bullet(doc, "Surrounding Roads and Pathways (Building Side)")
+    add_bullet(doc, "Surrounding Roads and Pathways (Opposite Side)")
 
     doc.add_paragraph()
     add_body(doc, "Description of terms in the report (based on visual observations) are:")
@@ -143,133 +207,178 @@ def add_introduction(doc):
     ]:
         p = doc.add_paragraph()
         r1 = p.add_run(f"{term}    ")
-        set_font(r1, bold=True, size=11)
+        set_run(r1, size=12, bold=True)
         r2 = p.add_run(definition)
-        set_font(r2, size=11)
+        set_run(r2, size=12)
 
     doc.add_paragraph()
-    fig2 = doc.add_paragraph()
-    fig2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = fig2.add_run("[Figure 2 – Pavement Rating Graph – Insert here]")
-    run.italic = True
-    set_font(run, size=10)
+
+    # Figure 2 & 3 placeholders
+    p = doc.add_paragraph()
+    run = p.add_run("Figure 2 – Graph Depicting Pavement Rating System")
+    set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
-    fig3 = doc.add_paragraph()
-    fig3.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = fig3.add_run("[Figure 3 – Pavement Rating Table – Insert here]")
-    run.italic = True
-    set_font(run, size=10)
+
+    p = doc.add_paragraph()
+    run = p.add_run("Figure 3 – Table Describing Pavement Rating System in More Detail")
+    set_run(run, size=12, bold=True, italic=True)
 
     doc.add_page_break()
 
 
 def add_existing_conditions_intro(doc):
-    add_heading(doc, "3.0 EXISTING CONDITIONS", size=13)
-    text = (
+    add_section_heading(doc, "3.0 EXISTING CONDITIONS")
+    add_body(doc, (
         f"The inspection covered all council-managed roads and footpaths along {PROJECT['streets_inspected']} "
         f"within the zone of influence of the proposed development at {PROJECT['address']}. "
         f"The roads and pathways were found to be in fair to poor condition with some cracks present "
         f"typical for the age of the infrastructure. Photos and description of condition can be found overleaf."
-    )
-    add_body(doc, text)
+    ))
     doc.add_paragraph()
-    add_heading(doc, "SURROUNDING ROAD AND PATHWAYS", size=12)
+    add_sub_label(doc, "SURROUNDING ROAD AND PATHWAYS")
     doc.add_paragraph()
 
 
-def add_photo_entry(doc, photo: dict):
-    """Add a single photo + caption to the document."""
+def add_photo_table_entry(doc, photo: dict):
+    """Add photo + caption as a single-column table row matching template format."""
     photo_path = Path(photo["path"])
 
+    # Create single-column table (no borders)
+    table = doc.add_table(rows=1, cols=1)
+    table.style = "Table Grid"
+    cell = table.cell(0, 0)
+
+    # Remove all borders
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcBorders = OxmlElement("w:tcBorders")
+    for border_name in ["top", "left", "bottom", "right", "insideH", "insideV"]:
+        border = OxmlElement(f"w:{border_name}")
+        border.set(qn("w:val"), "none")
+        tcBorders.append(border)
+    tcPr.append(tcBorders)
+
+    # Set cell width (~120mm)
+    tcW = OxmlElement("w:tcW")
+    tcW.set(qn("w:w"), "6810")
+    tcW.set(qn("w:type"), "dxa")
+    tcPr.append(tcW)
+
+    # Add photo
+    photo_para = cell.paragraphs[0]
+    photo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = photo_para.add_run()
     if photo_path.exists():
         try:
-            p = doc.add_paragraph()
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = p.add_run()
-            run.add_picture(str(photo_path), width=Cm(14))
+            run.add_picture(str(photo_path), width=Inches(4.73))
         except Exception:
-            p = doc.add_paragraph()
-            run = p.add_run(f"[Photo: {photo_path.name}]")
-            run.italic = True
+            run.add_run(f"[Photo: {photo_path.name}]")
     else:
-        p = doc.add_paragraph()
-        run = p.add_run(f"[Photo not found: {photo_path.name}]")
-        run.italic = True
+        photo_para.add_run(f"[Photo not found: {photo_path.name}]")
 
-    caption = doc.add_paragraph()
-    caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = caption.add_run(f"Photograph {photo['number']}: {photo['description']}")
-    set_font(run, size=10)
+    # Add caption paragraph in same cell
+    cap_para = cell.add_paragraph()
+    cap_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+    # "Photograph N:" — underlined + bold
+    r1 = cap_para.add_run(f"Photograph {photo['number']}:")
+    set_run(r1, size=9, bold=True, underline=True)
+
+    # Description — bold + italic
+    r2 = cap_para.add_run(f" {photo['description']}")
+    set_run(r2, size=9, bold=True, italic=True)
 
     doc.add_paragraph()
 
 
-def add_section_heading(doc, section_name: str):
+def add_direction_heading(doc, section_name: str):
+    """e.g. 'NORTHERN END' - 9pt bold, centred."""
     doc.add_paragraph()
-    p = add_heading(doc, section_name, size=12, bold=True)
+    p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run(section_name)
+    set_run(run, size=9, bold=True)
     doc.add_paragraph()
 
 
 def add_conclusion(doc):
     doc.add_page_break()
-    add_heading(doc, "4.0 CONCLUSION", size=13)
-    text = (
+    add_section_heading(doc, "4.0 CONCLUSION")
+    add_body(doc, (
         f"The inspection covered all council-managed roads and footpaths along {PROJECT['streets_inspected']} "
         f"within the zone of influence of the proposed development at {PROJECT['address']}. "
         f"The roads and pathways were found to be in reasonable to poor condition with some cracks present "
-        f"typical for the age of the infrastructure. No signs of significant structural distress were observed.\n\n"
-        f"The roads and footpaths were inspected on both sides of the roads. Across the road and footpaths there "
-        f"was cracking present which showed typical wear of council assets. These items have been documented in "
-        f"the photographic record above for future reference.\n\n"
+        f"typical for the age of the infrastructure. No signs of significant structural distress were observed."
+    ))
+    add_body(doc, (
+        "The roads and footpaths were inspected on both sides of the roads. Across the road and footpaths there "
+        "was cracking present which showed typical wear of council assets. These items have been documented in "
+        "the photographic record above for future reference."
+    ))
+    add_body(doc, (
         f"A total of {PROJECT['total_photos']} photos was taken during our inspection ({PROJECT['inspection_date']}). "
-        f"A full set of photos can be downloaded via the following link: {PROJECT['photo_link']}\n\n"
-        f"I am an appropriately qualified and person competent in this area. I possess indemnity insurance to "
-        f"the satisfaction of the client. We trust that this dilapidation report meets your requirements."
-    )
-    add_body(doc, text)
+        f"A full set of photos can be downloaded via the following link: {PROJECT['photo_link']}"
+    ))
+    add_body(doc, (
+        "I am an appropriately qualified and person competent in this area. I possess indemnity insurance to "
+        "the satisfaction of the client. We trust that this dilapidation report meets your requirements."
+    ))
 
     doc.add_paragraph()
     doc.add_paragraph()
 
-    sig = doc.add_paragraph()
-    r1 = sig.add_run(f"Yours faithfully,\n\n\n{PROJECT['inspector_name']}\n{PROJECT['inspector_quals']}\nFor, and on behalf of, {PROJECT['company']}.")
-    set_font(r1, size=11)
+    # Signature block
+    p = doc.add_paragraph()
+    r1 = p.add_run("Yours faithfully,")
+    set_run(r1, size=12)
+
+    doc.add_paragraph()
+    doc.add_paragraph()
+
+    p = doc.add_paragraph()
+    r1 = p.add_run(PROJECT["inspector_name"])
+    set_run(r1, size=12, bold=True)
+
+    p = doc.add_paragraph()
+    r1 = p.add_run(PROJECT["inspector_quals"])
+    set_run(r1, size=12, italic=True)
+
+    p = doc.add_paragraph()
+    r1 = p.add_run(f"For, and on behalf of, {PROJECT['company']}.")
+    set_run(r1, size=12)
 
 
 def build_report(all_photos: list[dict], output_path: str, template_path: str = None):
     if template_path and Path(template_path).exists():
         doc = Document(template_path)
-        # Clear all existing content but keep styles, headers, footers
+        # Clear all body content, keep styles/header/footer
         body = doc.element.body
         for child in list(body):
             body.remove(child)
         print(f"Using template: {Path(template_path).name}")
     else:
         doc = Document()
-        # Page margins
         for section in doc.sections:
-            section.top_margin = Cm(2)
-            section.bottom_margin = Cm(2)
-            section.left_margin = Cm(2.5)
-            section.right_margin = Cm(2.5)
+            section.top_margin = Cm(2.0)
+            section.bottom_margin = Cm(2.0)
+            section.left_margin = Cm(1.5)
+            section.right_margin = Cm(1.5)
 
     add_cover_page(doc)
+    add_report_metadata(doc)
     add_contents(doc)
     add_preamble(doc)
     add_introduction(doc)
     add_existing_conditions_intro(doc)
 
-    # Group photos by section
-    from itertools import groupby
     sections_seen = []
     for photo in all_photos:
         section = photo["section"]
         if not sections_seen or sections_seen[-1] != section:
             sections_seen.append(section)
-            add_section_heading(doc, section)
-        add_photo_entry(doc, photo)
+            add_direction_heading(doc, section)
+        add_photo_table_entry(doc, photo)
 
     add_conclusion(doc)
 
