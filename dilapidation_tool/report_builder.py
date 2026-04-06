@@ -242,10 +242,25 @@ def add_introduction(doc, map_paths: dict = None):
 
     doc.add_paragraph()
 
-    # Figure 3 placeholder (pavement rating table)
-    p = doc.add_paragraph()
-    run = p.add_run("Figure 3 – Table Describing Pavement Rating System in More Detail")
-    set_run(run, size=12, bold=True, italic=True)
+    # Figure 2 - Pavement Rating Graph
+    rating_graph = Path(__file__).parent / "rating_graph.png"
+    if rating_graph.exists():
+        add_map_figure(doc, str(rating_graph), "Figure 2 – Graph Depicting Pavement Rating System")
+    else:
+        p = doc.add_paragraph()
+        run = p.add_run("Figure 2 – Graph Depicting Pavement Rating System")
+        set_run(run, size=12, bold=True, italic=True)
+
+    doc.add_paragraph()
+
+    # Figure 3 - Pavement Rating Table
+    rating_table = Path(__file__).parent / "rating_table.png"
+    if rating_table.exists():
+        add_map_figure(doc, str(rating_table), "Figure 3 – Table Describing Pavement Rating System in More Detail")
+    else:
+        p = doc.add_paragraph()
+        run = p.add_run("Figure 3 – Table Describing Pavement Rating System in More Detail")
+        set_run(run, size=12, bold=True, italic=True)
 
     doc.add_page_break()
 
