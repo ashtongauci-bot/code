@@ -49,33 +49,41 @@ Respond with JSON only, in this format:
 # ─── BUILDING PROMPT ───────────────────────────────────────────
 
 BUILDING_CATEGORY_GUIDE = """
-Assign a category based on AS2870 crack classification:
-Cat 1 (Negligible): Hairline cracks, no structural concern
-Cat 2 (Slight): Fine cracks, minor cosmetic damage
-Cat 3 (Moderate): Cracks requiring repair, some structural concern
-Cat 4 (Severe): Significant cracking, structural damage likely
-Cat 5 (Very Severe): Major structural failure, urgent action required
+Use AS2870-2011 Table C1 damage categories for walls:
+
+Cat 0 (Negligible): Hairline cracks <0.1mm, no action required
+Cat 1 (Very Slight): Fine cracks <1mm, do not need repair
+Cat 2 (Slight): Cracks noticeable but easily filled <5mm, doors/windows may stick slightly
+Cat 3 (Moderate): Cracks 5-15mm (or multiple cracks 3mm+), doors/windows stick, some wall sections may need replacing
+Cat 4 (Severe): Cracks 15-25mm, extensive repair needed, walls lean or bulge, doors/windows distorted
 """
 
-BUILDING_PROMPT = """You are inspecting a residential or commercial building for a pre-construction dilapidation report in Australia.
+BUILDING_PROMPT = """You are a structural engineer inspecting a residential or commercial building for a pre-construction dilapidation report in Australia.
 
-Analyse this photo and write a single description sentence in this exact style:
-"[Element type] [location/context] showing [defect description and observed features]. [Condition]."
+Analyse this photo and write a single professional description sentence focusing ONLY on the building fabric and structure.
 
-Rules:
-- Element types: External brick wall, Rendered facade, Concrete driveway, Timber floor, Internal wall, Ceiling, Window frame, Door frame, Roof tile, Gutter, Downpipe, Paving, Retaining wall, Garden bed, etc.
-- Describe what you actually see: cracking (hairline, diagonal, horizontal, vertical), spalling, render loss, water staining, efflorescence, rust staining, rot, settlement, displacement, paint peeling
-- Keep it factual and professional (engineering report style)
-- One sentence only
+IMPORTANT:
+- IGNORE any personal belongings, furniture, shoes, clothing, vehicles, plants or people in the photo
+- ONLY describe the building elements: walls, floors, ceilings, windows, doors, roof, gutters, downpipes, paving, steps, balustrades, retaining walls, rendered surfaces, brickwork, timber framing, etc.
+- If no building defects are visible, describe the element and its condition as good/sound
+- Describe what you see: crack type (hairline, diagonal, horizontal, vertical), crack width if estimable, spalling, render loss, water staining, efflorescence, rust staining, rot, settlement, displacement, paint peeling
+
+Description format:
+"[Element type] to [location] showing [defect description and observed features]. Cat [X] ([Label])."
+
+Example outputs:
+"Brick wall to east facade showing diagonal cracking approximately 2mm wide at window corner, consistent with minor differential settlement. Cat 2 (Slight)."
+"Rendered external wall to north facade in good condition with no visible cracking or defects noted. Cat 0 (Negligible)."
+"Internal plasterboard wall to ground floor hallway showing hairline cracking at ceiling junction. Cat 1 (Very Slight)."
 
 Category guide:
 """ + BUILDING_CATEGORY_GUIDE + """
 
-Respond with JSON only, in this format:
+Respond with JSON only:
 {
-  "description": "External brick wall to east facade showing diagonal cracking...",
-  "rating": 3,
-  "condition": "Fair",
+  "description": "Brick wall to east facade showing...",
+  "rating": 2,
+  "condition": "Slight",
   "category": "Cat 2 (Slight)"
 }"""
 
