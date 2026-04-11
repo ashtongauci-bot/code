@@ -257,28 +257,9 @@ def add_introduction(doc, map_paths: dict = None):
 
     doc.add_paragraph()
 
-    # Figure 3 - AS2870 Crack Classification Table
-    fig3 = Path(__file__).parent / "rating_graph.png"
-    if fig3.exists():
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run()
-        run.add_picture(str(fig3), width=Inches(5.49))
-        cap = doc.add_paragraph()
-        run = cap.add_run("Figure 3 – AS2870 Classification of Damage Due to Foundation Movements")
-        set_run(run, size=12, bold=True, italic=True)
-        doc.add_paragraph()
-
-    # Figure 4 - Damage Rating Table
-    fig4 = Path(__file__).parent / "rating_table.png"
-    if fig4.exists():
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run()
-        run.add_picture(str(fig4), width=Inches(5.49))
-        cap = doc.add_paragraph()
-        run = cap.add_run("Figure 4 – Table 3.02 Damage to Walls Caused by Movement of Slabs and Footings")
-        set_run(run, size=12, bold=True, italic=True)
+    # Figures 3 & 4 - AS2870 rating tables (always included as Word tables)
+    add_as2870_table_c1(doc, fig_number=3)
+    add_table_3_02(doc, fig_number=4)
 
     doc.add_page_break()
 
@@ -337,6 +318,187 @@ def add_photo_table_entry(doc, photo: dict):
     r2 = cap.add_run(f": {photo['description']} -- {photo.get('category', '')}")
     set_run(r2, size=12)
 
+    doc.add_paragraph()
+
+
+def _set_table_borders(table):
+    """Apply visible single borders to all cells in a table."""
+    for row in table.rows:
+        for cell in row.cells:
+            tc = cell._tc
+            tcPr = tc.get_or_add_tcPr()
+            tcBorders = OxmlElement("w:tcBorders")
+            for side in ["top", "left", "bottom", "right"]:
+                border = OxmlElement(f"w:{side}")
+                border.set(qn("w:val"), "single")
+                border.set(qn("w:sz"), "4")
+                border.set(qn("w:color"), "000000")
+                tcBorders.append(border)
+            tcPr.append(tcBorders)
+
+
+def _shade_cell(cell, hex_color="D9D9D9"):
+    """Apply background shading to a table cell."""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), hex_color)
+    tcPr.append(shd)
+
+
+def add_as2870_table_c1(doc, fig_number=3):
+    """Build AS2870 Appendix C Table C1 as a Word table (always included)."""
+    p = doc.add_paragraph()
+    r1 = p.add_run("Also, when categorising cracking in this report, we rely on the definitions defined in ")
+    set_run(r1, size=11)
+    r2 = p.add_run("AS2870-2011, Appendix C (Page 72), Table C1")
+    set_run(r2, size=11, italic=True)
+    r3 = p.add_run(
+        " and the NSW Guide to Standards and Tolerances, 2017 (NSWGST) as per extracts below. "
+        "Cracks in this report are therefore categorised as follows:"
+    )
+    set_run(r3, size=11)
+    doc.add_paragraph()
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_run(p.add_run("TABLE C1"), size=11, bold=True)
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_run(p.add_run("CLASSIFICATION OF DAMAGE WITH REFERENCE TO WALLS"), size=11, bold=True)
+
+    table = doc.add_table(rows=6, cols=3)
+    table.style = "Normal Table"
+    _set_table_borders(table)
+
+    for col, text in enumerate([
+        "Description of typical damage and required repair",
+        "Approximate crack width limit (see Note 1)",
+        "Damage category",
+    ]):
+        cell = table.cell(0, col)
+        _shade_cell(cell)
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_run(p.add_run(text), size=10, bold=True)
+
+    for row_idx, (desc, width, cat) in enumerate([
+        ("Hairline cracks", "<0.1 mm", "Negligible"),
+        ("Fine cracks that do not need repair", "<1 mm", "1\nVery slight"),
+        ("Cracks noticeable but easily filled.\nDoors and windows stick slightly", "<5 mm", "2\nSlight"),
+        (
+            "Cracks can be repaired and possibly a small amount of wall will need to be replaced. "
+            "Doors and windows stick. Service pipes can fracture. Weather tightness often impaired",
+            "5 mm to 15 mm\n(or a number of cracks 3 mm or more in one group)",
+            "3\nModerate",
+        ),
+        (
+            "Extensive repair work involving breaking out and replacing sections of walls, especially "
+            "over doors and windows. Window frames and door frames distort. Walls lean or bulge "
+            "noticeably, some loss of bearing in beams. Service pipes disrupted",
+            "15 mm to 25 mm\nbut also depends on number of cracks",
+            "4\nSevere",
+        ),
+    ], start=1):
+        p = table.cell(row_idx, 0).paragraphs[0]
+        set_run(p.add_run(desc), size=10)
+        p = table.cell(row_idx, 1).paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_run(p.add_run(width), size=10)
+        p = table.cell(row_idx, 2).paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_run(p.add_run(cat), size=10)
+
+    doc.add_paragraph()
+    set_run(doc.add_paragraph().add_run("NOTES:"), size=9, bold=True)
+    for i, note in enumerate([
+        "Where the cracking occurs in easily repaired plasterboard or similar clad-framed partitions, "
+        "the crack width limits may be increased by 50% for each damage category.",
+        "Crack width is the main factor by which damage to walls is categorized. The width may be "
+        "supplemented by other factors, including serviceability, in assessing category of damage.",
+        "In assessing the degree of damage, account shall be taken of the location in the building "
+        "or structure where it occurs, and also of the function of the building or structure.",
+    ], start=1):
+        p = doc.add_paragraph()
+        set_run(p.add_run(f"{i}    "), size=9)
+        set_run(p.add_run(note), size=9)
+
+    doc.add_paragraph()
+    cap = doc.add_paragraph()
+    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_run(cap.add_run(
+        f"Figure {fig_number} – AS2870-2011 Appendix C, Table C1 – "
+        "Classification of Damage with Reference to Walls"
+    ), size=11, bold=True, italic=True)
+    doc.add_paragraph()
+
+
+def add_table_3_02(doc, fig_number=4):
+    """Build NSW Guide to Standards and Tolerances Table 3.02 as a Word table (always included)."""
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_run(p.add_run(
+        "TABLE 3.02  DAMAGE TO WALLS CAUSED BY MOVEMENT OF SLABS AND FOOTINGS AND OTHER CAUSES"
+    ), size=11, bold=True)
+
+    table = doc.add_table(rows=6, cols=3)
+    table.style = "Normal Table"
+    _set_table_borders(table)
+
+    for col, text in enumerate([
+        "Description of typical damage\nand required repair",
+        "Crack width limit",
+        "Damage Category",
+    ]):
+        cell = table.cell(0, col)
+        _shade_cell(cell)
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_run(p.add_run(text), size=10, bold=True)
+
+    for row_idx, (desc, width, cat) in enumerate([
+        ("Hairline cracks", "< 0.1 mm", "0 Negligible"),
+        ("Fine cracks that do not need repair", "< 1 mm", "1 Very slight"),
+        ("Cracks noticeable but easily filled.\nDoors and windows stick slightly", "< 5 mm", "2 Slight"),
+        (
+            "Cracks can be repaired and possibly a small amount of wall will need to be replaced. "
+            "Doors and windows stick. Service pipes can fracture. Weather tightness often impaired",
+            "5 mm to 15 mm\n(or a number of cracks 3 mm or more in one group)",
+            "3 Moderate",
+        ),
+        (
+            "Extensive repair work involving breaking out and replacing sections of walls, especially "
+            "over doors and windows. Window and doorframes distort. Walls lean or bulge noticeably. "
+            "Some loss of bearing in beams. Service pipes disrupted",
+            "15 mm to 25 mm\nbut also depends on number of cracks",
+            "4 Severe",
+        ),
+    ], start=1):
+        p = table.cell(row_idx, 0).paragraphs[0]
+        set_run(p.add_run(desc), size=10)
+        p = table.cell(row_idx, 1).paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_run(p.add_run(width), size=10)
+        p = table.cell(row_idx, 2).paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_run(p.add_run(cat), size=10)
+
+    doc.add_paragraph()
+    p = doc.add_paragraph()
+    set_run(p.add_run(
+        "Taken from AS2870: Residential slabs and footings – Construction, Table C1. "
+        "Classification of damage with reference to walls. Reproduced with permission from "
+        "SAI Global Ltd under Licence 1407-c122."
+    ), size=9, italic=True)
+    doc.add_paragraph()
+    cap = doc.add_paragraph()
+    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_run(cap.add_run(
+        f"Figure {fig_number} – NSW Guide to Standards and Tolerances, 2017 (NSWGST) Table 3.02"
+    ), size=11, bold=True, italic=True)
     doc.add_paragraph()
 
 
