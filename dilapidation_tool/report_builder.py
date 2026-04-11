@@ -242,34 +242,44 @@ def add_introduction(doc, map_paths: dict = None):
 
     doc.add_paragraph()
 
-    # Figure 2 - Inspection Zone Map
+    # Figure 2 - Property Site Map (subject + development overlays)
     if map_paths.get("figure2"):
-        add_map_figure(doc, map_paths["figure2"], "Figure 2 – Inspection Zone Map (Not to Scale)")
+        add_map_figure(doc, map_paths["figure2"], "Figure 2 – Site Property Map (Not to Scale)")
     else:
         p = doc.add_paragraph()
-        run = p.add_run("Figure 2 – Inspection Zone Map (Not to Scale)")
+        run = p.add_run("Figure 2 – Site Property Map (Not to Scale)")
         set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
 
-    # Figure 2 - Pavement Rating Graph
+    # Figure 3 - Inspection Zone Map
+    if map_paths.get("figure3"):
+        add_map_figure(doc, map_paths["figure3"], "Figure 3 – Inspection Zone Map (Not to Scale)")
+    else:
+        p = doc.add_paragraph()
+        run = p.add_run("Figure 3 – Inspection Zone Map (Not to Scale)")
+        set_run(run, size=12, bold=True, italic=True)
+
+    doc.add_paragraph()
+
+    # Figure 4 - Pavement Rating Graph
     rating_graph = Path(__file__).parent / "rating_graph.png"
     if rating_graph.exists():
-        add_map_figure(doc, str(rating_graph), "Figure 2 – Graph Depicting Pavement Rating System")
+        add_map_figure(doc, str(rating_graph), "Figure 4 – Graph Depicting Pavement Rating System")
     else:
         p = doc.add_paragraph()
-        run = p.add_run("Figure 2 – Graph Depicting Pavement Rating System")
+        run = p.add_run("Figure 4 – Graph Depicting Pavement Rating System")
         set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
 
-    # Figure 3 - Pavement Rating Table
+    # Figure 5 - Pavement Rating Table
     rating_table = Path(__file__).parent / "rating_table.png"
     if rating_table.exists():
-        add_map_figure(doc, str(rating_table), "Figure 3 – Table Describing Pavement Rating System in More Detail")
+        add_map_figure(doc, str(rating_table), "Figure 5 – Table Describing Pavement Rating System in More Detail")
     else:
         p = doc.add_paragraph()
-        run = p.add_run("Figure 3 – Table Describing Pavement Rating System in More Detail")
+        run = p.add_run("Figure 5 – Table Describing Pavement Rating System in More Detail")
         set_run(run, size=12, bold=True, italic=True)
 
     doc.add_page_break()

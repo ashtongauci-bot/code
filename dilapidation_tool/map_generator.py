@@ -255,6 +255,51 @@ def fetch_street_view(address: str, output_dir: Path) -> str | None:
     return cover_path
 
 
+def draw_property_overlay(draw: ImageDraw, img: Image.Image, centre_lat: float, centre_lon: float,
+                          prop_lat: float, prop_lon: float, zoom: int,
+                          colour_fill, colour_border, label: str, address: str):
+    """Draw a semi-transparent property rectangle and label on the map."""
+    mpp = metres_per_pixel(centre_lat, zoom)
+
+    # Approximate property as a rectangle ~25m x 40m
+    half_w = int(25 / mpp)
+    half_h = int(20 / mpp)
+
+    px, py = lat_lon_to_pixel(prop_lat, prop_lon, centre_lat, centre_lon, zoom, img.width, img.height)
+
+    # Draw semi-transparent fill using a separate RGBA image
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ov_draw = ImageDraw.Draw(overlay)
+    ov_draw.rectangle([px - half_w, py - half_h, px + half_w, py + half_h],
+                      fill=colour_fill, outline=colour_border, width=3)
+    img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
+
+    # Redraw border cleanly
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([px - half_w, py - half_h, px + half_w, py + half_h],
+                   outline=colour_border, width=3)
+
+    # Label box
+    try:
+        font = ImageFont.truetype("arial.ttf", 14)
+    except Exception:
+        font = ImageFont.load_default()
+
+    label_x = px - half_w + 5
+    label_y = py - half_h + 5
+    draw.rectangle([label_x - 2, label_y - 2, label_x + len(label) * 8 + 2, label_y + 18],
+                   fill=(0, 0, 0, 180))
+    draw.text((label_x, label_y), label, fill="white", font=font)
+
+    # Address label below
+    addr_y = py + half_h - 22
+    draw.rectangle([px - half_w + 3, addr_y - 2, px + half_w - 3, addr_y + 18],
+                   fill=(0, 0, 0, 160))
+    draw.text((px - half_w + 5, addr_y), address, fill="white", font=font)
+
+    return draw
+
+
 # ─── MAIN MAP GENERATION ───────────────────────────────────────────────────────
 
 def generate_maps(photos_dir: Path, output_dir: Path) -> dict[str, str]:
@@ -283,16 +328,30 @@ def generate_maps(photos_dir: Path, output_dir: Path) -> dict[str, str]:
     print("  Fetching Street View cover photo...")
     cover_path = fetch_street_view(PROJECT["address"], output_dir)
 
+    # Geocode development address if provided
+    dev_lat, dev_lon = None, None
+    dev_address = PROJECT.get("development_address", "")
+    if dev_address:
+        try:
+            print(f"  Geocoding development address: {dev_address}")
+            dev_lat, dev_lon = geocode_address(dev_address)
+        except Exception as e:
+            print(f"  Warning: Could not geocode development address: {e}")
+
     # Step 4: Generate Figure 1 - Locality Plan (zoomed out)
     print("  Generating Figure 1 - Locality Plan...")
     fig1_path = _generate_locality_map(site_lat, site_lon, coords, output_dir)
 
-    # Step 5: Generate Figure 2 - Inspection Zone (zoomed in)
-    print("  Generating Figure 2 - Inspection Zone Map...")
-    fig2_path = _generate_inspection_map(site_lat, site_lon, coords, output_dir)
+    # Step 5: Generate Figure 2 - Property Site Map (zoomed in with overlays)
+    print("  Generating Figure 2 - Property Site Map...")
+    fig2_path = _generate_property_map(site_lat, site_lon, dev_lat, dev_lon, output_dir)
+
+    # Step 6: Generate Figure 3 - Inspection Zone (photo GPS points)
+    print("  Generating Figure 3 - Inspection Zone Map...")
+    fig3_path = _generate_inspection_map(site_lat, site_lon, coords, output_dir)
 
     print(f"  Maps saved to: {output_dir}")
-    return {"figure1": fig1_path, "figure2": fig2_path, "cover": cover_path}
+    return {"figure1": fig1_path, "figure2": fig2_path, "figure3": fig3_path, "cover": cover_path}
 
 
 def _generate_locality_map(site_lat, site_lon, coords, output_dir):
@@ -323,6 +382,44 @@ def _generate_locality_map(site_lat, site_lon, coords, output_dir):
     return path
 
 
+def _generate_property_map(site_lat, site_lon, dev_lat, dev_lon, output_dir):
+    """Generate a zoomed-in satellite map showing both properties with coloured overlays."""
+    zoom = 19
+    img = fetch_satellite_image(site_lat, site_lon, zoom)
+    draw = ImageDraw.Draw(img)
+
+    # Draw subject property - grey overlay
+    draw = draw_property_overlay(
+        draw, img, site_lat, site_lon,
+        site_lat, site_lon, zoom,
+        colour_fill=(180, 180, 180, 100),
+        colour_border=(200, 200, 200),
+        label="Subject to Dilapidation",
+        address=PROJECT["address"],
+    )
+
+    # Draw development property - green overlay
+    if dev_lat and dev_lon:
+        draw = draw_property_overlay(
+            draw, img, site_lat, site_lon,
+            dev_lat, dev_lon, zoom,
+            colour_fill=(0, 180, 0, 100),
+            colour_border=(0, 200, 0),
+            label="Proposed Development",
+            address=PROJECT.get("development_address", ""),
+        )
+
+    draw_north_arrow(draw, img.width - 70, 80)
+    draw_scale_bar(draw, img, site_lat, zoom)
+    draw_title_box(draw, img,
+                   "Figure 2 – Site Property Map",
+                   "Subject to Dilapidation & Proposed Development (Not to Scale)")
+
+    path = str(output_dir / "figure2_property_map.png")
+    img.save(path)
+    return path
+
+
 def _generate_inspection_map(site_lat, site_lon, coords, output_dir):
     zoom = 18
     img = fetch_satellite_image(site_lat, site_lon, zoom)
@@ -346,9 +443,9 @@ def _generate_inspection_map(site_lat, site_lon, coords, output_dir):
     draw_north_arrow(draw, img.width - 70, 80)
     draw_scale_bar(draw, img, site_lat, zoom)
     draw_title_box(draw, img,
-                   "Figure 2 – Inspection Zone",
+                   "Figure 3 – Inspection Zone",
                    f"Zone of Influence – {PROJECT['address']} (Not to Scale)")
 
-    path = str(output_dir / "figure2_inspection_zone.png")
+    path = str(output_dir / "figure3_inspection_zone.png")
     img.save(path)
     return path

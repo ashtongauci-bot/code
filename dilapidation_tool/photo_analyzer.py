@@ -35,6 +35,7 @@ IMPORTANT:
 - IGNORE any vehicles, people, personal belongings, buildings or vegetation unless they are directly causing damage to the pavement (e.g. tree root heave)
 - ONLY describe council assets: asphalt/concrete footpaths, road carriageways, kerb and gutter, utility pits, driveways, stormwater infrastructure
 - Focus on visible distress: crack types (longitudinal, transverse, diagonal, block, alligator), crack width/spacing, ravelling, aggregate loss, surface wear, root heave, spalling, moss/algae growth, displacement, potholing, rutting, patching
+- Keep the description to a MAXIMUM of 28 words (not counting the Rating label at the end)
 
 Description format:
 "[Surface type] [location/context] showing [defect description and observed features]. Rating [X] ([Condition])."
@@ -76,6 +77,7 @@ IMPORTANT:
 - ONLY describe the building elements: walls, floors, ceilings, windows, doors, roof, gutters, downpipes, paving, steps, balustrades, retaining walls, rendered surfaces, brickwork, timber framing, etc.
 - If no building defects are visible, describe the element and its condition as good/sound
 - Describe what you see: crack type (hairline, diagonal, horizontal, vertical), crack width if estimable, spalling, render loss, water staining, efflorescence, rust staining, rot, settlement, displacement, paint peeling
+- Keep the description to a MAXIMUM of 28 words (not counting the Category label at the end)
 
 Description format:
 "[Element type] to [location] showing [defect description and observed features]. Cat [X] ([Label])."

@@ -241,27 +241,43 @@ def add_introduction(doc, map_paths: dict = None):
 
     doc.add_paragraph()
 
-    # Figure 2 - Crack classification table
-    fig2 = Path(__file__).parent / "rating_graph.png"
-    if fig2.exists():
+    # Figure 2 - Property Site Map (subject + development overlays)
+    if map_paths.get("figure2"):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
-        run.add_picture(str(fig2), width=Inches(5.49))
+        run.add_picture(map_paths["figure2"], width=Inches(6.0))
         cap = doc.add_paragraph()
-        run = cap.add_run("Figure 2 – AS2870 Crack Classification Table")
+        run = cap.add_run("Figure 2 – Site Property Map (Not to Scale)")
         set_run(run, size=12, bold=True, italic=True)
-        doc.add_paragraph()
+    else:
+        p = doc.add_paragraph()
+        run = p.add_run("Figure 2 – Site Property Map (Not to Scale)")
+        set_run(run, size=12, bold=True, italic=True)
 
-    # Figure 3 - Rating table
-    fig3 = Path(__file__).parent / "rating_table.png"
+    doc.add_paragraph()
+
+    # Figure 3 - AS2870 Crack Classification Table
+    fig3 = Path(__file__).parent / "rating_graph.png"
     if fig3.exists():
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
         run.add_picture(str(fig3), width=Inches(5.49))
         cap = doc.add_paragraph()
-        run = cap.add_run("Figure 3 – Pavement Rating System in More Detail")
+        run = cap.add_run("Figure 3 – AS2870 Classification of Damage Due to Foundation Movements")
+        set_run(run, size=12, bold=True, italic=True)
+        doc.add_paragraph()
+
+    # Figure 4 - Damage Rating Table
+    fig4 = Path(__file__).parent / "rating_table.png"
+    if fig4.exists():
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run()
+        run.add_picture(str(fig4), width=Inches(5.49))
+        cap = doc.add_paragraph()
+        run = cap.add_run("Figure 4 – Table 3.02 Damage to Walls Caused by Movement of Slabs and Footings")
         set_run(run, size=12, bold=True, italic=True)
 
     doc.add_page_break()
