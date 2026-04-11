@@ -215,6 +215,46 @@ def draw_title_box(draw: ImageDraw, img: Image.Image, title: str, subtitle: str)
     draw.text((10 + padding, 40 + padding), subtitle, fill="white", font=font_sub)
 
 
+# ─── STREET VIEW COVER PHOTO ───────────────────────────────────────────────────
+
+def fetch_street_view(address: str, output_dir: Path) -> str | None:
+    """
+    Fetch a Google Street View image of the site address for use as cover photo.
+    Returns path to saved image, or None if unavailable.
+    """
+    cover_path = str(output_dir / "cover_street_view.jpg")
+
+    # First check if Street View is available at this location
+    meta_url = "https://maps.googleapis.com/maps/api/streetview/metadata"
+    meta_params = {"location": address, "key": GOOGLE_MAPS_API_KEY}
+    meta_response = requests.get(meta_url, params=meta_params)
+    meta = meta_response.json()
+
+    if meta.get("status") != "OK":
+        print(f"  Street View not available for this address (status: {meta.get('status')})")
+        return None
+
+    # Fetch the Street View image
+    url = "https://maps.googleapis.com/maps/api/streetview"
+    params = {
+        "size": "1280x720",
+        "location": address,
+        "fov": 90,
+        "pitch": 5,
+        "key": GOOGLE_MAPS_API_KEY,
+    }
+    response = requests.get(url, params=params)
+    if response.status_code != 200:
+        print(f"  Street View fetch failed: {response.status_code}")
+        return None
+
+    with open(cover_path, "wb") as f:
+        f.write(response.content)
+
+    print(f"  Street View cover photo saved: {cover_path}")
+    return cover_path
+
+
 # ─── MAIN MAP GENERATION ───────────────────────────────────────────────────────
 
 def generate_maps(photos_dir: Path, output_dir: Path) -> dict[str, str]:
@@ -239,16 +279,20 @@ def generate_maps(photos_dir: Path, output_dir: Path) -> dict[str, str]:
         print("  No GPS data found in photos - using site address only")
         coords = [(site_lat, site_lon)]
 
-    # Step 3: Generate Figure 1 - Locality Plan (zoomed out)
+    # Step 3: Fetch Street View cover photo
+    print("  Fetching Street View cover photo...")
+    cover_path = fetch_street_view(PROJECT["address"], output_dir)
+
+    # Step 4: Generate Figure 1 - Locality Plan (zoomed out)
     print("  Generating Figure 1 - Locality Plan...")
     fig1_path = _generate_locality_map(site_lat, site_lon, coords, output_dir)
 
-    # Step 4: Generate Figure 2 - Inspection Zone (zoomed in)
+    # Step 5: Generate Figure 2 - Inspection Zone (zoomed in)
     print("  Generating Figure 2 - Inspection Zone Map...")
     fig2_path = _generate_inspection_map(site_lat, site_lon, coords, output_dir)
 
     print(f"  Maps saved to: {output_dir}")
-    return {"figure1": fig1_path, "figure2": fig2_path}
+    return {"figure1": fig1_path, "figure2": fig2_path, "cover": cover_path}
 
 
 def _generate_locality_map(site_lat, site_lon, coords, output_dir):

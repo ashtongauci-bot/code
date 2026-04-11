@@ -20,7 +20,7 @@ def set_run(run, size=None, bold=False, italic=False, underline=False, font_name
     run.underline = underline
 
 
-def add_cover_page(doc):
+def add_cover_page(doc, cover_photo: str = None):
     # Title
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -60,7 +60,17 @@ def add_cover_page(doc):
     set_run(run, size=12, bold=True)
 
     doc.add_paragraph()
-    doc.add_paragraph()
+
+    # Cover photo - use Street View if available, otherwise placeholder
+    if cover_photo and Path(cover_photo).exists():
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run()
+        run.add_picture(str(cover_photo), width=Inches(6.0))
+    else:
+        doc.add_paragraph()
+        doc.add_paragraph()
+
     doc.add_paragraph()
 
     # Metadata block (bottom of cover)
@@ -407,7 +417,7 @@ def build_report(all_photos: list[dict], output_path: str, template_path: str = 
             section.left_margin = Cm(1.5)
             section.right_margin = Cm(1.5)
 
-    add_cover_page(doc)
+    add_cover_page(doc, cover_photo=map_paths.get("cover") if map_paths else None)
     add_report_metadata(doc)
     add_contents(doc)
     add_preamble(doc)

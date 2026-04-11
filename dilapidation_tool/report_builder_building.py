@@ -61,7 +61,7 @@ def add_facade_label(doc, text):
     return p
 
 
-def add_cover_page(doc):
+def add_cover_page(doc, cover_photo: str = None):
     doc.add_paragraph()
 
     # Title
@@ -102,17 +102,19 @@ def add_cover_page(doc):
 
     doc.add_paragraph()
 
-    # Cover photo placeholder
-    cover_photo = Path(__file__).parent / "photos" / "cover.jpg"
-    if cover_photo.exists():
+    # Cover photo - use Street View or manual cover.jpg
+    manual_cover = Path(__file__).parent / "photos" / "cover.jpg"
+    photo_to_use = cover_photo or (str(manual_cover) if manual_cover.exists() else None)
+
+    if photo_to_use and Path(photo_to_use).exists():
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
-        run.add_picture(str(cover_photo), width=Inches(7.09))
+        run.add_picture(str(photo_to_use), width=Inches(6.0))
     else:
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run("[Cover photo – place cover.jpg in photos folder]")
+        run = p.add_run("[Cover photo – auto-generated or place cover.jpg in photos folder]")
         run.italic = True
         set_run(run, size=11)
 
@@ -377,7 +379,7 @@ def build_building_report(all_photos: list[dict], output_path: str,
             section.left_margin = Cm(1.5)
             section.right_margin = Cm(1.5)
 
-    add_cover_page(doc)
+    add_cover_page(doc, cover_photo=map_paths.get("cover") if map_paths else None)
     add_report_metadata(doc)
     add_contents(doc)
     add_preamble(doc)
