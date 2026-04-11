@@ -13,32 +13,41 @@ client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 # ─── COUNCIL ASSETS PROMPT ─────────────────────────────────────
 
 COUNCIL_RATING_GUIDE = """
-Rate the pavement/kerb/footpath on a scale of 1-7:
-1 - Extremely Poor: Structural failure, unsafe
-2 - Very Poor: Severe deterioration, large sections missing or displaced
-3 - Poor: Significant cracking, ravelling, aggregate loss, root heave
-4 - Fair (lower): Moderate cracking, longitudinal/transverse cracks, some ravelling
-5 - Fair (upper): Minor cracking, light ravelling, surface wear consistent with age
-6 - Good: Minor surface wear only, very limited distress
-7 - Good (excellent): No visible defects, new or near-new condition
+Rate pavement/kerb/footpath using this system (1-10 scale):
+
+Rating 10 - Excellent: No distress, new construction
+Rating 9  - Excellent: No distress, recent overlay, like new
+Rating 8  - Very Good: No longitudinal cracks except paving joint reflection. Occasional transverse cracks widely spaced (>40'). All cracks sealed/tight (<1/4"). Little or no maintenance required.
+Rating 7  - Good: Very slight/no raveling, minor traffic wear. Longitudinal cracks (open 1/4") from joints. Transverse cracks spaced >10' apart, slight raveling. No patching or few patches in excellent condition. Routine maintenance, cracksealing and minor patching.
+Rating 6  - Good: Slight raveling (loss of fines) and traffic wear. Longitudinal cracks (1/4"-1/2"), some <10' apart. First sign of block cracking. Slight to moderate flushing/polishing. Occasional patching in good condition. Preservative treatments needed.
+Rating 5  - Fair: Moderate to severe raveling (loss of fine and coarse aggregate). Longitudinal and transverse cracks (open 1/2"), slight raveling and secondary cracks. Longitudinal cracks near edge. Block cracking up to 50%. Extensive flushing/polishing. Some patching or edge wedging. Needs sealcoat or thin non-structural overlay.
+Rating 4  - Fair: Severe surface raveling. Multiple longitudinal and transverse cracking with slight raveling. Longitudinal cracking in wheel path. Block cracking over 50%. Patching in fair condition. Slight rutting or distortions (1/2" deep or less). Needs structural overlay 2"+.
+Rating 3  - Poor: Closely spaced longitudinal and transverse cracks with raveling and crack erosion. Severe block cracking. Some alligator cracking (<25%). Patches in fair to poor condition. Moderate rutting or distortion (1-2" deep). Occasional potholes. Needs patching and major overlay.
+Rating 2  - Very Poor: Alligator cracking (>25%). Severe distortions (>2" deep). Extensive patching in poor condition. Potholes. Needs reconstruction with extensive base repair.
+Rating 1  - Failed: Severe distress with extensive loss of surface integrity. Needs total reconstruction.
 """
 
-COUNCIL_PROMPT = """You are inspecting council assets (roads, footpaths, kerbs, gutters) for a pre-construction dilapidation report in Australia.
+COUNCIL_PROMPT = """You are a civil engineer inspecting council assets (roads, footpaths, kerbs, gutters) for a pre-construction dilapidation report in Australia.
 
-Analyse this photo and write a single description sentence in this exact style:
+Analyse this photo and write a single professional description sentence focusing ONLY on the council infrastructure visible.
+
+IMPORTANT:
+- IGNORE any vehicles, people, personal belongings, buildings or vegetation unless they are directly causing damage to the pavement (e.g. tree root heave)
+- ONLY describe council assets: asphalt/concrete footpaths, road carriageways, kerb and gutter, utility pits, driveways, stormwater infrastructure
+- Focus on visible distress: crack types (longitudinal, transverse, diagonal, block, alligator), crack width/spacing, ravelling, aggregate loss, surface wear, root heave, spalling, moss/algae growth, displacement, potholing, rutting, patching
+
+Description format:
 "[Surface type] [location/context] showing [defect description and observed features]. Rating [X] ([Condition])."
 
-Rules:
-- Surface types: Asphalt footpath, Concrete footpath, Asphalt road carriageway, Concrete kerb, Concrete kerb/gutter, etc.
-- Describe what you actually see: cracking types (longitudinal, transverse, diagonal), ravelling, aggregate loss, surface wear, root heave, spalling, moss/algae growth, utility pits, displacement
-- Condition label: use "Good" for ratings 6-7, "Fair" for ratings 4-5, "Poor" for ratings 1-3
-- Keep it factual and professional (engineering report style)
-- One sentence only, ending with the rating
+Example outputs:
+"Asphalt footpath alongside brick building showing moderate surface cracking with open longitudinal and transverse cracks and surface ravelling. Rating 5 (Fair)."
+"Concrete kerb and gutter at intersection showing longitudinal cracking along the kerb face with slight displacement. Rating 4 (Fair)."
+"Asphalt road carriageway showing generally sound surface with minor transverse cracking and light surface ravelling consistent with normal ageing. Rating 7 (Good)."
 
 Rating guide:
 """ + COUNCIL_RATING_GUIDE + """
 
-Respond with JSON only, in this format:
+Respond with JSON only:
 {
   "description": "Asphalt footpath alongside brick wall showing...",
   "rating": 5,
