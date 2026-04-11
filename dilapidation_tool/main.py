@@ -13,7 +13,9 @@ REPORT_TYPE = config.REPORT_TYPE
 
 PHOTOS_DIR = Path(__file__).parent / "photos"
 OUTPUT_DIR = Path(__file__).parent / "output"
-TEMPLATE_PATH = Path(__file__).parent / "26066 - Council Assets (Surrounding 81-85 Campell Street, SURRYHILLS, NSW) - Pre-Construction Dilapidation Report.docx"
+COUNCIL_TEMPLATE = Path(__file__).parent / "26066 - Council Assets (Surrounding 81-85 Campell Street, SURRYHILLS, NSW) - Pre-Construction Dilapidation Report.docx"
+BUILDING_TEMPLATE = Path(__file__).parent / "Building Report Template.docx"
+TEMPLATE_PATH = BUILDING_TEMPLATE if REPORT_TYPE == "building" else COUNCIL_TEMPLATE
 CACHE_FILE = Path(__file__).parent / "output" / "photo_cache.json"
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
