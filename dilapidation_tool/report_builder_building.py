@@ -284,6 +284,27 @@ def add_introduction(doc, map_paths: dict = None):
     else:
         print("  Warning: rating_table.png not found – Figure 4 skipped")
 
+    # Bridging text + Figure 5 - NSWGST Extract
+    doc.add_paragraph()
+    add_body(doc, (
+        "As AS2870 and the NSWGST extracts suggest, Category 3 cracking is considered structural, "
+        "and therefore further structural engineering advice on such defects should be sourced. "
+        "Figure 5 is another extract from the NSWGST which further validates this opinion:"
+    ))
+    doc.add_paragraph()
+
+    fig5 = Path(__file__).parent / "rating_extract.png"
+    if fig5.exists():
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run()
+        run.add_picture(str(fig5), width=Inches(5.49))
+        cap = doc.add_paragraph()
+        run = cap.add_run("Figure 5 – NSW Guide to Standards and Tolerances, 2017 (NSWGST) Extract")
+        set_run(run, size=12, bold=True, italic=True)
+    else:
+        print("  Warning: rating_extract.png not found – Figure 5 skipped")
+
     doc.add_page_break()
 
 
