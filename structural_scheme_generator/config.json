@@ -1,0 +1,32 @@
+{
+  "_comment": "Structural Scheme Generator — example configuration",
+  "_disclaimer": "⚠ PRELIMINARY TOOL ONLY — all output requires engineer review",
+
+  "pdf_path": "architectural_floor_plan.pdf",
+  "drawing_scale": "1:100",
+  "anthropic_api_key": "your-key-here",
+  "render_scale": 3,
+
+  "structural": {
+    "_system_options": ["flat_plate_rc", "flat_plate_pt", "flat_slab_drops", "band_beam"],
+    "slab_system": "flat_plate_rc",
+    "slab_thickness_mm": 250,
+
+    "_load_options": ["residential_kPa", "office_kPa", "retail_kPa", "carpark_kPa", "heavy_industrial_kPa"],
+    "load_type": "office_kPa",
+
+    "fc_column_MPa": 50,
+    "num_floors": 8,
+    "target_grid_mm": null
+  },
+
+  "levels": [
+    {
+      "page_index": 0,
+      "level_name": "Typical Floor",
+      "floor_to_floor_height_m": 3.6
+    }
+  ],
+
+  "review_before_output": true
+}
