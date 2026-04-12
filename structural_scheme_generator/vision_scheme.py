@@ -50,11 +50,23 @@ def page_to_base64(
         (b64_string, dims_dict)
         dims_dict keys: width_pts, height_pts, render_scale, width_px, height_px
     """
+    MAX_PX = 7800  # Claude's hard limit is 8000px; stay under it
+
     doc = fitz.open(pdf_path)
     page = doc[page_index]
     rect = page.rect  # PDF units (points)
 
-    mat = fitz.Matrix(render_scale, render_scale)
+    # Auto-reduce render_scale if it would produce an image larger than MAX_PX
+    max_dim_pts = max(rect.width, rect.height)
+    effective_scale = render_scale
+    if max_dim_pts * effective_scale > MAX_PX:
+        effective_scale = MAX_PX / max_dim_pts
+        print(
+            f"  render_scale reduced from {render_scale} → {effective_scale:.2f} "
+            f"to stay within Claude's {MAX_PX}px image limit."
+        )
+
+    mat = fitz.Matrix(effective_scale, effective_scale)
     pix = page.get_pixmap(matrix=mat, alpha=False)
 
     buf = io.BytesIO(pix.tobytes("png"))
@@ -63,7 +75,7 @@ def page_to_base64(
     dims = {
         "width_pts": rect.width,
         "height_pts": rect.height,
-        "render_scale": render_scale,
+        "render_scale": effective_scale,
         "width_px": pix.width,
         "height_px": pix.height,
     }
