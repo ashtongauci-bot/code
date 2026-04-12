@@ -189,6 +189,7 @@ def _extract_json(text: str) -> dict:
     - Leading/trailing prose
     - Markdown fences (``` or ''')
     - Any text before the opening { or after the closing }
+    - Trailing commas before } or ] (common LLM output issue)
     """
     # Find the first { and last } — everything in between is the JSON object
     start = text.find("{")
@@ -198,6 +199,10 @@ def _extract_json(text: str) -> dict:
             f"No JSON object found in Claude response.\nRaw response:\n{text[:2000]}"
         )
     json_str = text[start : end + 1]
+
+    # Remove trailing commas before } or ] — strict JSON forbids them
+    json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
+
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as exc:
