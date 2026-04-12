@@ -29,11 +29,13 @@ def add_body(doc, text, size=12, bold=False, italic=False, align=WD_ALIGN_PARAGR
 
 
 def add_section_heading(doc, text):
-    """Heading 1 - e.g. '1.0 PREAMBLE'"""
+    """Heading 1 – all visual formatting delegated to the Heading 1 paragraph style."""
     p = doc.add_paragraph(style="Heading 1")
     run = p.add_run(text)
-    set_run(run, size=18, bold=True)
-    run.font.color.rgb = RGBColor(0, 0, 0)
+    rPr = run._r.get_or_add_rPr()
+    rFonts = OxmlElement("w:rFonts")
+    rFonts.set(qn("w:cs"), "Times New Roman")
+    rPr.append(rFonts)
     return p
 
 
@@ -110,7 +112,7 @@ def add_cover_page(doc, cover_photo: str = None):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
-        run.add_picture(str(photo_to_use), width=Inches(6.0))
+        run.add_picture(str(photo_to_use), width=Inches(7.09), height=Inches(5.10))
     else:
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -120,7 +122,7 @@ def add_cover_page(doc, cover_photo: str = None):
 
     doc.add_paragraph()
 
-    # Metadata
+    # Prepared By / Date / Ref block
     for label, value in [
         ("Prepared By:", PROJECT["inspector_name"]),
         ("Date:", PROJECT["report_date"]),
@@ -130,10 +132,11 @@ def add_cover_page(doc, cover_photo: str = None):
         run = p.add_run(f"{label}\t{value}")
         set_run(run, size=12)
 
-    doc.add_page_break()
+    # 14 spacer paragraphs push the info block toward the bottom of the cover page
+    for _ in range(14):
+        doc.add_paragraph()
 
-
-def add_report_metadata(doc):
+    # Report info block (bottom of cover page)
     for label, value in [
         ("Name:", f"Pre-Construction Dilapidation Report – {PROJECT['address']}"),
         ("Date of Inspection:", PROJECT["inspection_date"]),
@@ -144,7 +147,8 @@ def add_report_metadata(doc):
         set_run(r1, size=12, bold=True)
         r2 = p.add_run(value)
         set_run(r2, size=12)
-    doc.add_paragraph()
+
+    doc.add_page_break()
 
 
 def add_contents(doc):
@@ -220,9 +224,14 @@ def add_introduction(doc, map_paths: dict = None):
         "property. Specifically, the inspection covered:"
     ))
 
+    # Proper Word list bullets (Problem 6)
     for item in ["External Facades", "Internal Areas"]:
-        p = doc.add_paragraph()
-        run = p.add_run(f"•\t{item}")
+        try:
+            p = doc.add_paragraph(style="List Bullet")
+        except Exception:
+            p = doc.add_paragraph()
+            p.add_run("• ")
+        run = p.add_run(item)
         set_run(run, size=12)
 
     doc.add_paragraph()
@@ -319,15 +328,10 @@ def add_existing_conditions_intro(doc):
     doc.add_paragraph()
 
 
-def add_photo_table_entry(doc, photo: dict):
-    """Add photo + caption in a borderless single-column table."""
-    photo_path = Path(photo["path"])
+# ─── PHOTO TABLE HELPERS ──────────────────────────────────────────────────────
 
-    table = doc.add_table(rows=1, cols=1)
-    table.style = "Normal Table"
-    cell = table.cell(0, 0)
-
-    # Remove borders
+def _remove_cell_borders(cell):
+    """Remove all visible borders from a table cell."""
     tc = cell._tc
     tcPr = tc.get_or_add_tcPr()
     tcBorders = OxmlElement("w:tcBorders")
@@ -336,34 +340,146 @@ def add_photo_table_entry(doc, photo: dict):
         border.set(qn("w:val"), "none")
         tcBorders.append(border)
     tcPr.append(tcBorders)
-
-    # Set cell width
     tcW = OxmlElement("w:tcW")
     tcW.set(qn("w:w"), "6803")
     tcW.set(qn("w:type"), "dxa")
     tcPr.append(tcW)
 
-    # Photo
-    photo_para = cell.paragraphs[0]
-    photo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = photo_para.add_run()
-    if photo_path.exists():
-        try:
-            run.add_picture(str(photo_path), width=Inches(4.724))
-        except Exception:
-            photo_para.add_run(f"[Photo: {photo_path.name}]")
-    else:
-        photo_para.add_run(f"[Photo not found: {photo_path.name}]")
 
-    # Caption: "Photograph N" underlined + ": description -- Cat X (Severity)"
-    cap = cell.add_paragraph()
-    r1 = cap.add_run(f"Photograph {photo['number']}")
-    set_run(r1, size=12, underline=True)
-    r2 = cap.add_run(f": {photo['description']} -- {photo.get('category', '')}")
-    set_run(r2, size=12)
+def _make_run_elem(rpr_specs: list, text: str = None, fld_type: str = None, instr: str = None):
+    """Build a <w:r> element with the given run properties and content."""
+    r = OxmlElement("w:r")
+    rPr = OxmlElement("w:rPr")
+    for tag, attrs in rpr_specs:
+        el = OxmlElement(tag)
+        for k, v in attrs.items():
+            el.set(qn(k), v)
+        rPr.append(el)
+    r.append(rPr)
+
+    if fld_type is not None:
+        fc = OxmlElement("w:fldChar")
+        fc.set(qn("w:fldCharType"), fld_type)
+        r.append(fc)
+    elif instr is not None:
+        it = OxmlElement("w:instrText")
+        it.set(qn("xml:space"), "preserve")
+        it.text = instr
+        r.append(it)
+    elif text is not None:
+        t = OxmlElement("w:t")
+        t.set(qn("xml:space"), "preserve")
+        t.text = text
+        r.append(t)
+    return r
+
+
+def _build_caption_para(para, photo_number: int, description: str, category: str):
+    """
+    Populate a paragraph with a Caption-style photo caption using a SEQ field.
+
+    Format: "Photograph [SEQ]: description -- category"
+    - "Photograph " prefix: 12pt, TNR, underline, color 000000
+    - SEQ field: auto-increments in Word on open
+    - Description text: 11pt, Calibri, color 44546A
+    """
+    # Apply Caption paragraph style
+    try:
+        para.style = "Caption"
+    except Exception:
+        pass
+
+    # Paragraph-level rPr (cursor default formatting)
+    pPr = para._p.get_or_add_pPr()
+    p_rPr = OxmlElement("w:rPr")
+    for tag, attrs in [
+        ("w:b",     {"w:val": "0"}),
+        ("w:i",     {"w:val": "0"}),
+        ("w:color", {"w:val": "000000"}),
+        ("w:sz",    {"w:val": "24"}),
+        ("w:u",     {"w:val": "single"}),
+    ]:
+        el = OxmlElement(tag)
+        for k, v in attrs.items():
+            el.set(qn(k), v)
+        p_rPr.append(el)
+    pPr.append(p_rPr)
+
+    # Standard run properties for "Photograph " prefix + SEQ field runs
+    std = [
+        ("w:i",     {"w:val": "0"}),
+        ("w:color", {"w:val": "000000"}),
+        ("w:sz",    {"w:val": "24"}),
+        ("w:u",     {"w:val": "single"}),
+    ]
+    std_with_b0 = [("w:b", {"w:val": "0"})] + std
+
+    # "Photograph " prefix
+    para._p.append(_make_run_elem(std, text="Photograph "))
+
+    # SEQ field: begin → instrText → separate → cached value → end
+    para._p.append(_make_run_elem(std_with_b0, fld_type="begin"))
+    para._p.append(_make_run_elem(std, instr=" SEQ Photograph \\* ARABIC "))
+    para._p.append(_make_run_elem(std_with_b0, fld_type="separate"))
+    # Cached display value (Word auto-updates on open)
+    cached_rpr = std + [("w:noProof", {})]
+    para._p.append(_make_run_elem(cached_rpr, text=str(photo_number)))
+    para._p.append(_make_run_elem(std_with_b0, fld_type="end"))
+
+    # Description run: Calibri 11pt, steel-blue colour, no underline
+    desc_text = f": {description}"
+    if category:
+        desc_text += f" -- {category}"
+    desc_rpr = [
+        ("w:rFonts", {"w:ascii": "Calibri", "w:hAnsi": "Calibri"}),
+        ("w:color",  {"w:val": "44546A"}),
+        ("w:sz",     {"w:val": "22"}),
+    ]
+    para._p.append(_make_run_elem(desc_rpr, text=desc_text))
+
+
+def add_photo_section_table(doc, photos: list[dict]):
+    """
+    All photos for one section in a single borderless table.
+    Row layout: image row, caption row, image row, caption row …
+    """
+    n = len(photos)
+    table = doc.add_table(rows=n * 2, cols=1)
+    table.style = "Normal Table"
+
+    for i, photo in enumerate(photos):
+        photo_path = Path(photo["path"])
+        img_row = i * 2
+        cap_row = i * 2 + 1
+
+        # ── image cell ────────────────────────────────────────────
+        img_cell = table.cell(img_row, 0)
+        _remove_cell_borders(img_cell)
+        img_para = img_cell.paragraphs[0]
+        img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        img_run = img_para.add_run()
+        if photo_path.exists():
+            try:
+                img_run.add_picture(str(photo_path), width=Inches(4.724))
+            except Exception:
+                img_para.add_run(f"[Photo: {photo_path.name}]")
+        else:
+            img_para.add_run(f"[Photo not found: {photo_path.name}]")
+
+        # ── caption cell ─────────────────────────────────────────
+        cap_cell = table.cell(cap_row, 0)
+        _remove_cell_borders(cap_cell)
+        _build_caption_para(
+            cap_cell.paragraphs[0],
+            photo["number"],
+            photo["description"],
+            photo.get("category", ""),
+        )
 
     doc.add_paragraph()
 
+
+# ─── CONCLUSION ───────────────────────────────────────────────────────────────
 
 def add_conclusion(doc):
     doc.add_page_break()
@@ -401,6 +517,8 @@ def add_conclusion(doc):
     set_run(p.add_run(f"For, and on behalf of, {PROJECT['company']}."), size=12)
 
 
+# ─── MAIN BUILD ───────────────────────────────────────────────────────────────
+
 def build_building_report(all_photos: list[dict], output_path: str,
                           template_path: str = None, map_paths: dict = None):
     if template_path and Path(template_path).exists():
@@ -420,35 +538,50 @@ def build_building_report(all_photos: list[dict], output_path: str,
             section.left_margin = Cm(1.5)
             section.right_margin = Cm(1.5)
 
+    # cover page now includes the Name/Date of Inspection/To block at the bottom
     add_cover_page(doc, cover_photo=map_paths.get("cover") if map_paths else None)
-    add_report_metadata(doc)
     add_contents(doc)
     add_preamble(doc)
     add_introduction(doc, map_paths=map_paths)
     add_existing_conditions_intro(doc)
     add_conclusion(doc)
 
-    # Appendix sections - group by appendix then facade
+    # ── Appendix photo sections ───────────────────────────────────────────────
+    # Group photos so all photos in the same appendix+facade share one table.
     doc.add_page_break()
 
-    appendices_seen = []
-    facades_seen = []
+    current_appendix = None
+    current_facade = None
+    section_photos: list[dict] = []
 
     for photo in all_photos:
         appendix = photo.get("appendix", photo["section"])
         facade = photo.get("facade", "")
 
-        if appendix not in appendices_seen:
-            appendices_seen.append(appendix)
-            add_appendix_label(doc, appendix)
-            doc.add_paragraph()
+        # Flush accumulated photos when the section changes
+        if appendix != current_appendix or facade != current_facade:
+            if section_photos:
+                add_photo_section_table(doc, section_photos)
+                section_photos = []
 
-        if facade and (not facades_seen or facades_seen[-1] != facade):
-            facades_seen.append(facade)
-            add_facade_label(doc, facade)
-            doc.add_paragraph()
+            # New appendix label
+            if appendix != current_appendix:
+                current_appendix = appendix
+                current_facade = None          # reset so facade label fires below
+                add_appendix_label(doc, appendix)
+                doc.add_paragraph()
 
-        add_photo_table_entry(doc, photo)
+            # New facade label
+            if facade and facade != current_facade:
+                current_facade = facade
+                add_facade_label(doc, facade)
+                doc.add_paragraph()
+
+        section_photos.append(photo)
+
+    # Flush the final section
+    if section_photos:
+        add_photo_section_table(doc, section_photos)
 
     doc.save(output_path)
     print(f"\nReport saved to: {output_path}")
