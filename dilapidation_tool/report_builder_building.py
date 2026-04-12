@@ -173,26 +173,44 @@ def add_contents(doc):
 
 def add_preamble(doc):
     add_section_heading(doc, "1.0 PREAMBLE")
-    add_body(doc, (
-        f"This pre-construction dilapidation report is based on visual inspection only. "
-        f"The purpose of this report is to provide a photographic record of the condition of "
-        f"the property at {PROJECT['address']} prior to construction works at the neighbouring "
-        f"development at {PROJECT.get('development_address', PROJECT['address'])}."
-    ))
-    add_body(doc, (
-        f"This report gives a brief descriptive record of any defects noted on the date of our "
-        f"inspection. The inspection included all site features and accessible areas as photographed "
-        f"and identified within this report."
-    ))
-    add_body(doc, (
-        f"A total of {PROJECT['total_photos']} photos was taken during our inspection "
-        f"({PROJECT['inspection_date']}). A full set of photos can be downloaded via the "
-        f"following link: {PROJECT['photo_link']}"
-    ))
+
+    # Paragraph 1 – subject address bold, optional property description, dev address bold
+    p = doc.add_paragraph()
+    set_run(p.add_run(
+        "This pre-construction dilapidation report is based on visual inspection only. "
+        "The purpose of this report is to provide a photographic record of the "
+        "existing internal and external conditions of "
+    ), size=12)
+    set_run(p.add_run(f"{PROJECT['address']}."), size=12, bold=True)
+
+    prop_desc = PROJECT.get("property_description", "")
+    if prop_desc:
+        set_run(p.add_run(f" {prop_desc}"), size=12)
+
+    dev_addr = PROJECT.get("development_address", "")
+    if dev_addr:
+        set_run(p.add_run(" This property is located adjacent to the proposed development at "), size=12)
+        set_run(p.add_run(f"{dev_addr}."), size=12, bold=True)
+
+    set_run(p.add_run(
+        " This report also gives a brief descriptive record of any defects noted on the "
+        "date of our inspection. The inspection included all site features and accessible "
+        "areas of the property as photographed and identified within this report. "
+        "Photos show items of note, such as cracks, as well as some overviews."
+    ), size=12)
+
+    # Paragraph 2 – photos available on request
+    p2 = doc.add_paragraph()
+    set_run(p2.add_run(
+        f"A full set of photos taken during our inspection ({PROJECT['inspection_date']}) "
+        "can be provided upon request."
+    ), size=12)
+
+    # Paragraph 3 – non-structural disclaimer
     add_body(doc, (
         "This report is not a structural or civil engineering report. It is the property owner's "
         "responsibility to seek further structural engineering advice on any defective elements "
-        "noted in this report."
+        "which have been noted in this report."
     ))
     doc.add_paragraph()
 
@@ -200,10 +218,12 @@ def add_preamble(doc):
 def add_introduction(doc, map_paths: dict = None):
     map_paths = map_paths or {}
     add_section_heading(doc, "2.0 INTRODUCTION")
-    add_body(doc, (
-        f"The inspection focused on the existing conditions of the property at {PROJECT['address']}. "
-        f"The extent of the inspection area is highlighted in Figure 1 below."
-    ))
+
+    # Lead-in with bold subject address
+    p = doc.add_paragraph()
+    set_run(p.add_run("The inspection focused on the internal and external conditions to "), size=12)
+    set_run(p.add_run(f"{PROJECT['address']}."), size=12, bold=True)
+    set_run(p.add_run(" The extent of which is highlighted in Figure 1 below."), size=12)
     doc.add_paragraph()
 
     # Figure 1 - Locality Map
@@ -220,12 +240,14 @@ def add_introduction(doc, map_paths: dict = None):
 
     doc.add_paragraph()
     add_body(doc, (
-        "The areas inspected include all accessible external facades and internal areas of the "
-        "property. Specifically, the inspection covered:"
+        "The areas inspected at this property include all external building facades and external "
+        "site features. The internals for the property were also inspected as access was provided. "
+        "Specifically, when discussing the pre-construction condition of the building in this report, "
+        "we have structured this report in the following sub-categories:"
     ))
 
-    # Proper Word list bullets (Problem 6)
-    for item in ["External Facades", "Internal Areas"]:
+    # Bullet list
+    for item in ["External Facades", "Internals"]:
         try:
             p = doc.add_paragraph(style="List Bullet")
         except Exception:
@@ -235,18 +257,34 @@ def add_introduction(doc, map_paths: dict = None):
         set_run(run, size=12)
 
     doc.add_paragraph()
-    add_body(doc, "Description of terms in the report (based on visual observations) are:")
+    add_body(doc, (
+        "When describing the condition of an element in this report (Good, Fair or Poor), these are "
+        "visual observation-based opinions and are based on the following definitions:"
+    ))
 
     for term, definition in [
-        ("Good -", "Items do not appear to have any defects and are in good condition."),
-        ("Fair -", "Item is in reasonable condition for its age and may have some minor defect(s)."),
-        ("Poor -", "Indicates generally that a defect is beyond minor and further structural advice may be required."),
+        ("Good –", "Items do not appear to have any defects and are in good condition."),
+        ("Fair –", "Item is in reasonable condition for its age and may have some minor defect(s)."),
+        ("Poor –", "Indicates generally that a defect is beyond minor and further structural advice is required."),
     ]:
         p = doc.add_paragraph()
         r1 = p.add_run(f"{term}    ")
         set_run(r1, size=12, bold=True)
         r2 = p.add_run(definition)
         set_run(r2, size=12)
+
+    doc.add_paragraph()
+
+    # AS2870 categorisation paragraph (exact template wording)
+    p = doc.add_paragraph()
+    set_run(p.add_run("Also, when categorising cracking in this report, we rely on the definitions defined in "), size=12)
+    set_run(p.add_run("AS2870-2011, Appendix C (Page 72), Table C1 and the NSW Guide to Standards and Tolerances, 2017 (NSWGST)"), size=12, italic=True)
+    set_run(p.add_run(
+        " as per extracts in Figures 3 & 4 below. Although, this extract classifies damage due to "
+        "foundation movements (particularly cracking with reference to walls) we still believe it to "
+        "be useful in categorizing all cracking defects identified at our dilapidation survey inspection. "
+        "Cracks in this report are therefore categorised as follows:"
+    ), size=12)
 
     doc.add_paragraph()
 
@@ -446,6 +484,16 @@ def add_photo_section_table(doc, photos: list[dict]):
     n = len(photos)
     table = doc.add_table(rows=n * 2, cols=1)
     table.style = "Normal Table"
+
+    # Centre the table on the page
+    tbl = table._tbl
+    tblPr = tbl.find(qn("w:tblPr"))
+    if tblPr is None:
+        tblPr = OxmlElement("w:tblPr")
+        tbl.insert(0, tblPr)
+    jc = OxmlElement("w:jc")
+    jc.set(qn("w:val"), "center")
+    tblPr.append(jc)
 
     for i, photo in enumerate(photos):
         photo_path = Path(photo["path"])
