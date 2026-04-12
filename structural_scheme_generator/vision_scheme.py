@@ -182,17 +182,27 @@ Return ONLY this JSON (no other text, no markdown fences):
 # ---------------------------------------------------------------------------
 
 def _extract_json(text: str) -> dict:
-    """Extract a JSON object from the model response, tolerating markdown fences."""
-    text = text.strip()
-    # Remove markdown fences if present
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    text = text.strip()
+    """
+    Extract a JSON object from the model response.
+
+    Robust to:
+    - Leading/trailing prose
+    - Markdown fences (``` or ''')
+    - Any text before the opening { or after the closing }
+    """
+    # Find the first { and last } — everything in between is the JSON object
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError(
+            f"No JSON object found in Claude response.\nRaw response:\n{text[:2000]}"
+        )
+    json_str = text[start : end + 1]
     try:
-        return json.loads(text)
+        return json.loads(json_str)
     except json.JSONDecodeError as exc:
         raise ValueError(
-            f"Claude response is not valid JSON.\nRaw response:\n{text[:2000]}"
+            f"Claude response is not valid JSON.\nExtracted:\n{json_str[:2000]}"
         ) from exc
 
 
