@@ -141,15 +141,16 @@ def _add_full_disclaimer_annotation(page: fitz.Page) -> None:
     """Add a text annotation in the bottom-left corner with the full disclaimer."""
     x0, y0 = 10, page.rect.height - 80
     rect = fitz.Rect(x0, y0, x0 + 300, page.rect.height - 10)
+    # border_color is not supported when rich_text=False (PyMuPDF raises ValueError)
+    # Set border separately via set_border() after creation instead.
     annot = page.add_freetext_annot(
         rect,
         _FULL_DISCLAIMER,
         fontsize=5,
         text_color=(0.7, 0.0, 0.0),
         fill_color=(1.0, 0.98, 0.85),
-        border_color=(0.8, 0.0, 0.0),
     )
-    annot.set_border(width=0.5)
+    annot.set_border(width=0.5, dashes=None)
     annot.update()
 
 
