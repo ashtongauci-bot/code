@@ -132,10 +132,70 @@ def _extract_json(text):
 
     try:
         return json.loads(json_str)
-    except json.JSONDecodeError as exc:
-        raise ValueError(
-            "Claude response is not valid JSON.\nExtracted:\n" + json_str[:2000]
-        ) from exc
+    except json.JSONDecodeError:
+        # Response may be truncated (hit max_tokens). Try to recover by
+        # closing any open arrays/objects so the parser can salvage what it got.
+        json_str = _attempt_json_recovery(json_str)
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                "Claude response is not valid JSON (even after recovery attempt).\n"
+                "Extracted:\n" + json_str[:2000]
+            ) from exc
+
+
+def _attempt_json_recovery(json_str):
+    """
+    Attempt to close a truncated JSON string so json.loads can parse it.
+    Tracks open brackets/braces and appends the necessary closing characters.
+    """
+    # Remove any incomplete trailing token (partial string, number, key)
+    # Trim to last complete value - find last } or ] before truncation point
+    json_str = json_str.rstrip()
+
+    # Remove trailing incomplete fragments - stop at last clean comma, } or ]
+    for i in range(len(json_str) - 1, -1, -1):
+        if json_str[i] in ('}', ']', '"', '0123456789'):
+            if json_str[i] == '"':
+                # Make sure the string is closed
+                json_str = json_str[:i + 1]
+            break
+        json_str = json_str[:i]
+
+    # Re-strip trailing commas after cleanup
+    json_str = re.sub(r",\s*$", "", json_str.rstrip())
+
+    # Count unclosed brackets and braces
+    stack = []
+    in_string = False
+    escape_next = False
+    for ch in json_str:
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == '\\' and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if not in_string:
+            if ch in ('{', '['):
+                stack.append(ch)
+            elif ch == '}':
+                if stack and stack[-1] == '{':
+                    stack.pop()
+            elif ch == ']':
+                if stack and stack[-1] == '[':
+                    stack.pop()
+
+    # Close everything that's still open
+    closing = ""
+    for ch in reversed(stack):
+        closing += '}' if ch == '{' else ']'
+
+    return json_str + closing
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +211,7 @@ def analyse_for_scheme(b64_image, dims, config, span_result):
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=4096,
+        max_tokens=8192,
         messages=[
             {
                 "role": "user",
