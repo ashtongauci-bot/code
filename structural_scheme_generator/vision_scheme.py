@@ -118,56 +118,43 @@ def _build_vision_prompt(dims, config, span_result):
 # JSON extraction - robust to LLM formatting quirks
 # ---------------------------------------------------------------------------
 
-def _extract_json(text):
-    # Find the outermost JSON object by locating first { and last }
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        raise ValueError(
-            "No JSON object found in Claude response.\nRaw response:\n" + text[:2000]
-        )
-    json_str = text[start:end + 1]
+# Minimum keys required in a valid analysis response
+_REQUIRED_KEYS = [
+    "floor_plate", "voids", "forced_columns", "architectural_grid_mm",
+    "architectural_grid_confidence", "architectural_grid_note",
+    "column_sensitive_zones", "core_walls", "facade_line",
+    "warnings", "general_notes",
+]
 
-    # Remove trailing commas before } or ] - strict JSON forbids them
-    json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
-
-    try:
-        return json.loads(json_str)
-    except json.JSONDecodeError:
-        # Response may be truncated (hit max_tokens). Try to recover by
-        # closing any open arrays/objects so the parser can salvage what it got.
-        json_str = _attempt_json_recovery(json_str)
-        try:
-            return json.loads(json_str)
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                "Claude response is not valid JSON (even after recovery attempt).\n"
-                "Extracted:\n" + json_str[:2000]
-            ) from exc
+_ANALYSIS_DEFAULTS = {
+    "floor_plate": [],
+    "voids": [],
+    "forced_columns": [],
+    "architectural_grid_mm": None,
+    "architectural_grid_confidence": "low",
+    "architectural_grid_note": "",
+    "column_sensitive_zones": [],
+    "core_walls": [],
+    "facade_line": [],
+    "warnings": ["JSON parse failed - analysis incomplete, re-run recommended"],
+    "general_notes": "Automatic analysis partially failed.",
+}
 
 
-def _attempt_json_recovery(json_str):
-    """
-    Attempt to close a truncated JSON string so json.loads can parse it.
-    Tracks open brackets/braces and appends the necessary closing characters.
-    """
-    # Remove any incomplete trailing token (partial string, number, key)
-    # Trim to last complete value - find last } or ] before truncation point
-    json_str = json_str.rstrip()
+def _sanitize(text):
+    """Replace common problematic Unicode and fix trailing commas."""
+    # Replace characters that look like JSON syntax but aren't
+    text = text.replace("\u2018", "'").replace("\u2019", "'")   # curly single quotes
+    text = text.replace("\u201c", '\\"').replace("\u201d", '\\"')  # curly double → escaped
+    text = text.replace("\u2014", "-").replace("\u2013", "-")    # em/en dash
+    text = text.replace("\u00a0", " ")                           # non-breaking space
+    # Remove trailing commas before } or ]
+    text = re.sub(r",\s*([}\]])", r"\1", text)
+    return text
 
-    # Remove trailing incomplete fragments - stop at last clean comma, } or ]
-    for i in range(len(json_str) - 1, -1, -1):
-        if json_str[i] in ('}', ']', '"', '0123456789'):
-            if json_str[i] == '"':
-                # Make sure the string is closed
-                json_str = json_str[:i + 1]
-            break
-        json_str = json_str[:i]
 
-    # Re-strip trailing commas after cleanup
-    json_str = re.sub(r",\s*$", "", json_str.rstrip())
-
-    # Count unclosed brackets and braces
+def _close_open_brackets(json_str):
+    """Walk the string tracking bracket depth and append any missing closers."""
     stack = []
     in_string = False
     escape_next = False
@@ -175,28 +162,98 @@ def _attempt_json_recovery(json_str):
         if escape_next:
             escape_next = False
             continue
-        if ch == '\\' and in_string:
+        if ch == "\\" and in_string:
             escape_next = True
             continue
         if ch == '"':
             in_string = not in_string
             continue
         if not in_string:
-            if ch in ('{', '['):
+            if ch in ("{", "["):
                 stack.append(ch)
-            elif ch == '}':
-                if stack and stack[-1] == '{':
-                    stack.pop()
-            elif ch == ']':
-                if stack and stack[-1] == '[':
-                    stack.pop()
-
-    # Close everything that's still open
-    closing = ""
-    for ch in reversed(stack):
-        closing += '}' if ch == '{' else ']'
-
+            elif ch == "}" and stack and stack[-1] == "{":
+                stack.pop()
+            elif ch == "]" and stack and stack[-1] == "[":
+                stack.pop()
+    closing = "".join("}" if c == "{" else "]" for c in reversed(stack))
     return json_str + closing
+
+
+def _progressive_parse(json_str):
+    """
+    Try parsing the string, then progressively trim from the end at each
+    closing bracket until we get something json.loads accepts.
+    Handles both truncation and mid-string syntax errors.
+    """
+    # Collect positions of all } and ] (outside strings) as trim points
+    trim_positions = []
+    in_string = False
+    escape_next = False
+    for i, ch in enumerate(json_str):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\" and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if not in_string and ch in ("}", "]"):
+            trim_positions.append(i)
+
+    # Try from longest to shortest
+    for pos in reversed(trim_positions):
+        candidate = json_str[:pos + 1]
+        candidate = re.sub(r",\s*$", "", candidate.rstrip())
+        candidate = _close_open_brackets(candidate)
+        try:
+            result = json.loads(candidate)
+            if isinstance(result, dict):
+                return result
+        except json.JSONDecodeError:
+            continue
+
+    return None
+
+
+def _extract_json(text):
+    """
+    Extract and parse a JSON object from the model response.
+    Handles: prose before/after, markdown fences, trailing commas,
+    Unicode quirks, truncated responses, and mid-string syntax errors.
+    Falls back to partial defaults rather than crashing.
+    """
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        print("  WARNING: No JSON object found in Claude response. Using defaults.")
+        return dict(_ANALYSIS_DEFAULTS)
+
+    raw = _sanitize(text[start:end + 1])
+
+    # Attempt 1: direct parse after sanitization
+    try:
+        result = json.loads(raw)
+        if isinstance(result, dict):
+            return result
+    except json.JSONDecodeError:
+        pass
+
+    # Attempt 2: progressive trim from end
+    result = _progressive_parse(raw)
+    if result is not None:
+        print("  NOTE: Claude response was partially malformed — recovered what we could.")
+        # Fill in any missing keys with defaults
+        for key, default in _ANALYSIS_DEFAULTS.items():
+            if key not in result:
+                result[key] = default
+        return result
+
+    # Attempt 3: give up gracefully — return defaults so tool doesn't crash
+    print("  WARNING: Could not parse Claude response JSON. Using empty defaults.")
+    print("  Recommend re-running — the column grid will use bounding-box fallback.")
+    return dict(_ANALYSIS_DEFAULTS)
 
 
 # ---------------------------------------------------------------------------
@@ -236,6 +293,18 @@ def analyse_for_scheme(b64_image, dims, config, span_result):
 
     raw = message.content[0].text
     analysis = _extract_json(raw)
+
+    # If floor_plate is empty (parse failed), fall back to full page bounding box
+    if not analysis.get("floor_plate"):
+        print("  WARNING: floor_plate empty — using page bounding box as fallback.")
+        w, h = dims["width_pts"], dims["height_pts"]
+        margin = min(w, h) * 0.03
+        analysis["floor_plate"] = [
+            {"x_pts": margin,     "y_pts": margin},
+            {"x_pts": w - margin, "y_pts": margin},
+            {"x_pts": w - margin, "y_pts": h - margin},
+            {"x_pts": margin,     "y_pts": h - margin},
+        ]
 
     analysis["floor_plate_area_m2"] = _polygon_area_m2(
         analysis.get("floor_plate", []),
