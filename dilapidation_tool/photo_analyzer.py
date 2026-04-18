@@ -164,12 +164,16 @@ def analyze_photo(image_path: Path, report_type: str = "council_assets") -> dict
 
 def analyze_section(section_folder: Path, section_name: str, start_number: int = 1,
                     max_workers: int = PHOTO_WORKERS, report_type: str = "council_assets",
-                    appendix: str = "", facade: str = "") -> list[dict]:
-    """Analyze all photos in a section folder in parallel and return list of photo records."""
+                    appendix: str = "", facade: str = "",
+                    photo_paths: list = None) -> list[dict]:
+    """Analyze photos in parallel. Pass photo_paths to analyze a specific subset."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     image_extensions = {".jpg", ".jpeg", ".png", ".webp"}
-    photos = sorted([p for p in section_folder.iterdir() if p.suffix.lower() in image_extensions])
+    if photo_paths is not None:
+        photos = sorted(photo_paths)
+    else:
+        photos = sorted([p for p in section_folder.iterdir() if p.suffix.lower() in image_extensions])
 
     def process(args):
         i, photo_path = args

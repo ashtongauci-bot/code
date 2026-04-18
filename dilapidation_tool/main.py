@@ -83,6 +83,7 @@ def process_sections(sections, cached):
     cached_files = {p["filename"] for p in cached}
     all_photos = []
     photo_number = 1
+    max_per_section = getattr(config, "MAX_PHOTOS_PER_SECTION", 0)
 
     for section in sections:
         folder = section["folder"]
@@ -90,15 +91,22 @@ def process_sections(sections, cached):
         appendix = section["appendix"]
         facade = section["facade"]
 
-        photos_in_section = sorted([
+        all_in_folder = sorted([
             p for p in folder.iterdir()
             if p.suffix.lower() in IMAGE_EXTENSIONS
         ])
 
-        if not photos_in_section:
+        if not all_in_folder:
             continue
 
-        print(f"\n[{section_label}] - {len(photos_in_section)} photos")
+        # Apply cap before analysis so uncapped photos are never sent to the API
+        if max_per_section and max_per_section > 0 and len(all_in_folder) > max_per_section:
+            photos_in_section = all_in_folder[:max_per_section]
+            print(f"\n[{section_label}] - {len(all_in_folder)} photos "
+                  f"(capped to {max_per_section})")
+        else:
+            photos_in_section = all_in_folder
+            print(f"\n[{section_label}] - {len(photos_in_section)} photos")
 
         new_photos = [p for p in photos_in_section if p.name not in cached_files]
         already_cached = [p for p in photos_in_section if p.name in cached_files]
@@ -115,6 +123,7 @@ def process_sections(sections, cached):
                 report_type=REPORT_TYPE,
                 appendix=appendix,
                 facade=facade,
+                photo_paths=new_photos,
             )
             cached.extend(new_results)
             cached_files.update(r["filename"] for r in new_results)
@@ -162,24 +171,6 @@ def main():
 
     if not all_photos:
         print("\nNo photos found in any section folders.")
-        return
-
-    # Apply per-section photo cap (MAX_PHOTOS_PER_SECTION in config, 0 = all)
-    max_per_section = getattr(config, "MAX_PHOTOS_PER_SECTION", 0)
-    if max_per_section and max_per_section > 0:
-        section_counts: dict = {}
-        capped: list = []
-        for photo in all_photos:
-            key = (photo.get("appendix", photo["section"]), photo.get("facade", ""))
-            section_counts[key] = section_counts.get(key, 0) + 1
-            if section_counts[key] <= max_per_section:
-                capped.append(photo)
-        removed = len(all_photos) - len(capped)
-        all_photos = capped
-        print(f"Photo cap applied: max {max_per_section} per section "
-              f"({len(all_photos)} included, {removed} excluded from report)")
-
-    if not all_photos:
         return
 
     print(f"\nTotal photos processed: {len(all_photos)}")
