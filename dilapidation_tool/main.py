@@ -164,6 +164,24 @@ def main():
         print("\nNo photos found in any section folders.")
         return
 
+    # Apply per-section photo cap (MAX_PHOTOS_PER_SECTION in config, 0 = all)
+    max_per_section = getattr(config, "MAX_PHOTOS_PER_SECTION", 0)
+    if max_per_section and max_per_section > 0:
+        section_counts: dict = {}
+        capped: list = []
+        for photo in all_photos:
+            key = (photo.get("appendix", photo["section"]), photo.get("facade", ""))
+            section_counts[key] = section_counts.get(key, 0) + 1
+            if section_counts[key] <= max_per_section:
+                capped.append(photo)
+        removed = len(all_photos) - len(capped)
+        all_photos = capped
+        print(f"Photo cap applied: max {max_per_section} per section "
+              f"({len(all_photos)} included, {removed} excluded from report)")
+
+    if not all_photos:
+        return
+
     print(f"\nTotal photos processed: {len(all_photos)}")
 
     # Generate site maps
