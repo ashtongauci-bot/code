@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+output/
+*.edb
+*.e2k.bak
+config.local.json

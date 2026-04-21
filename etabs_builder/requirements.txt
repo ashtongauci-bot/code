@@ -1,0 +1,23 @@
+# ETABS Builder — Python dependencies
+#
+# Install with:  pip install -r requirements.txt
+#
+# Note: comtypes (for the ETABS COM API) is Windows-only.
+# The vision analysis and E2K export work on any platform.
+
+# Claude vision API (floor plan analysis)
+anthropic>=0.25.0
+
+# PDF rendering (plan page → base64 PNG for Claude)
+pymupdf>=1.24.0
+
+# Geometry (Voronoi tributary areas, polygon operations)
+shapely>=2.0.0
+
+# Numerical helpers
+numpy>=1.26.0
+
+# ---------------------------------------------------------------------------
+# Windows-only: required to run the generated build_etabs_model.py script
+# ---------------------------------------------------------------------------
+# comtypes>=1.2.0    # uncomment on Windows to use ETABS COM API

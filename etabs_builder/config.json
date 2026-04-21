@@ -1,0 +1,63 @@
+{
+  "_comment": "ETABS Builder — example configuration",
+  "_disclaimer": "⚠ PRELIMINARY TOOL ONLY — all output requires structural engineer review",
+
+  "pdf_path": "floor_plans.pdf",
+  "drawing_scale": "1:100",
+  "anthropic_api_key": "your-key-here",
+  "render_scale": 3,
+
+  "project": {
+    "name": "Project Name",
+    "base_rl_m": 0.0
+  },
+
+  "structural": {
+    "_note": "Concrete strengths in MPa. Slab thickness in mm.",
+    "slab_system": "flat_plate_rc",
+    "slab_thickness_mm": 250,
+    "fc_column_MPa": 50,
+    "fc_wall_MPa": 40,
+    "fc_slab_MPa": 32
+  },
+
+  "columns": {
+    "_note": "auto_size=true calculates column size from tributary area + loads. Set false to use default_size_mm for all columns not annotated with a size.",
+    "auto_size": true,
+    "default_size_mm": 600
+  },
+
+  "walls": {
+    "_note": "default_thickness_mm used if no thickness is detected on the plan.",
+    "default_thickness_mm": 250
+  },
+
+  "levels": [
+    {
+      "_note": "page_index = 0-based PDF page number showing this level's floor plan.",
+      "_usage_options": ["residential","office","retail","carpark","corridor","plant_room","storage","roof_non_trafficable","roof_trafficable","roof_garden","assembly","health_care"],
+      "page_index": 0,
+      "name": "Ground Floor",
+      "floor_to_floor_height_m": 4.2,
+      "floor_usage": "office"
+    },
+    {
+      "page_index": 0,
+      "name": "Level 2",
+      "floor_to_floor_height_m": 3.6,
+      "floor_usage": "office"
+    },
+    {
+      "page_index": 0,
+      "name": "Level 3",
+      "floor_to_floor_height_m": 3.6,
+      "floor_usage": "office"
+    },
+    {
+      "page_index": 1,
+      "name": "Roof",
+      "floor_to_floor_height_m": 3.6,
+      "floor_usage": "roof_non_trafficable"
+    }
+  ]
+}
