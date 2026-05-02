@@ -396,22 +396,22 @@ def draw_property_overlay(draw: ImageDraw, img: Image.Image, centre_lat: float, 
 def _generate_corridor_map(site_lat: float, site_lon: float,
                            coords: list[tuple[float, float]], output_dir: Path) -> str:
     """
-    Generate a corridor map showing a 50m-each-direction inspection zone along the street.
-    The corridor is a semi-transparent orange band centred on the site address.
+    Generate a corridor map: solid red outline 50m each direction along the street,
+    wide enough to cover the road carriageway and footpaths on both sides.
     """
     zoom = 18
     img = fetch_satellite_image(site_lat, site_lon, zoom)
+    draw = ImageDraw.Draw(img)
 
     street_bearing = _calculate_street_bearing(coords)
     perp_bearing = (street_bearing + 90) % 360
-    half_width_m = 20   # metres each side of street centreline (covers road + footpaths)
-    reach_m = 50        # metres each direction along the street
+    half_width_m = 15   # metres each side — covers road + footpath
+    reach_m = 50        # metres each direction along street from site centre
 
-    # Four corners of the corridor polygon
-    # (+along, +perp), (+along, -perp), (-along, -perp), (-along, +perp)
+    # Four corners of the corridor rectangle
     corner_offsets = [
-        (reach_m,  half_width_m),
-        (reach_m,  -half_width_m),
+        ( reach_m,  half_width_m),
+        ( reach_m, -half_width_m),
         (-reach_m, -half_width_m),
         (-reach_m,  half_width_m),
     ]
@@ -421,50 +421,13 @@ def _generate_corridor_map(site_lat: float, site_lon: float,
         lat2, lon2 = _offset_lat_lon(lat1, lon1, perp, perp_bearing)
         corners_px.append(lat_lon_to_pixel(lat2, lon2, site_lat, site_lon, zoom, img.width, img.height))
 
-    # Semi-transparent orange corridor fill
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    ov_draw = ImageDraw.Draw(overlay)
-    ov_draw.polygon(corners_px, fill=(255, 165, 0, 90))
-    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
-    draw = ImageDraw.Draw(img)
-
-    # Corridor outline
+    # Solid red outline — no fill
     for i in range(4):
-        draw.line([corners_px[i], corners_px[(i + 1) % 4]], fill=(255, 165, 0), width=3)
+        draw.line([corners_px[i], corners_px[(i + 1) % 4]], fill=(220, 0, 0), width=4)
 
-    # Dashed centreline along the street
-    end_a_px = lat_lon_to_pixel(
-        *_offset_lat_lon(site_lat, site_lon, reach_m, street_bearing),
-        site_lat, site_lon, zoom, img.width, img.height,
-    )
-    end_b_px = lat_lon_to_pixel(
-        *_offset_lat_lon(site_lat, site_lon, -reach_m, street_bearing),
-        site_lat, site_lon, zoom, img.width, img.height,
-    )
-    _draw_dashed_line(draw, end_b_px, end_a_px, fill=(255, 255, 255), width=2)
-
-    # Site centre pin (red circle)
+    # Red pin at site centre
     sx, sy = lat_lon_to_pixel(site_lat, site_lon, site_lat, site_lon, zoom, img.width, img.height)
-    draw.ellipse([sx - 10, sy - 10, sx + 10, sy + 10], fill="red", outline="white", width=3)
-
-    try:
-        font = ImageFont.truetype("arial.ttf", 16)
-        font_sm = ImageFont.truetype("arial.ttf", 14)
-    except Exception:
-        font = ImageFont.load_default()
-        font_sm = font
-
-    # "50m" labels at each end of the corridor centreline
-    for end_px, side_label in [(end_a_px, "50m"), (end_b_px, "50m")]:
-        lx, ly = end_px[0] - 22, end_px[1] - 22
-        draw.rectangle([lx - 3, ly - 3, lx + 50, ly + 22], fill=(0, 0, 0, 180))
-        draw.text((lx, ly), f"← {side_label} →", fill="white", font=font_sm)
-
-    # Dimension line showing full 100m span
-    mid_top = ((corners_px[0][0] + corners_px[3][0]) // 2, min(corners_px[0][1], corners_px[3][1]) - 18)
-    dim_lx = mid_top[0] - 50
-    draw.rectangle([dim_lx - 4, mid_top[1] - 4, dim_lx + 100 + 4, mid_top[1] + 20], fill=(0, 0, 0, 180))
-    draw.text((dim_lx, mid_top[1]), f"← 100m total corridor →", fill=(255, 165, 0), font=font_sm)
+    draw.ellipse([sx - 8, sy - 8, sx + 8, sy + 8], fill=(220, 0, 0), outline="white", width=2)
 
     draw_north_arrow(draw, img.width - 70, 80)
     draw_scale_bar(draw, img, site_lat, zoom)
