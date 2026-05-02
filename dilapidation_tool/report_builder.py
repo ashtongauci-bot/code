@@ -254,6 +254,16 @@ def add_body(doc, text):
     return p
 
 
+def add_mixed_para(doc, parts):
+    """Add a paragraph with mixed bold/plain runs.
+    parts: list of (text, bold) — e.g. [("plain ", False), ("bold", True), (".", False)]
+    """
+    p = doc.add_paragraph()
+    for text, bold in parts:
+        set_run(p.add_run(text), size=12, bold=(True if bold else None))
+    return p
+
+
 def add_bullet(doc, text):
     """Bullet point paragraph."""
     p = doc.add_paragraph()
@@ -264,18 +274,15 @@ def add_bullet(doc, text):
 
 def add_preamble(doc):
     add_section_heading(doc, "1.0 PREAMBLE")
-    p = doc.add_paragraph()
-    r1 = p.add_run(
-        "This pre-construction dilapidation report is based on visual inspection only. "
-        f"The purpose of this report is to provide a photographic record of the Council Assets along "
-        f"{PROJECT['streets_inspected']}. The council assets include roads and footpaths within the zone of "
-        "influence of the proposed construction site at "
-    )
-    set_run(r1, size=12)
-    r2 = p.add_run(PROJECT["address"])
-    set_run(r2, size=12, bold=True)
-    r3 = p.add_run(".")
-    set_run(r3, size=12)
+    add_mixed_para(doc, [
+        ("This pre-construction dilapidation report is based on visual inspection only. "
+         "The purpose of this report is to provide a photographic record of the ", False),
+        (f"Council Assets along {PROJECT['streets_inspected']}", True),
+        (". The council assets include roads and footpaths within the zone of "
+         "influence of the proposed construction site at ", False),
+        (PROJECT["address"], True),
+        (".", False),
+    ])
     add_body(doc, (
         f"This report also gives a brief descriptive record of any defects noted on the date of our inspection. "
         f"The inspection included all site features and accessible areas of the council assets as photographed "
@@ -385,12 +392,14 @@ def add_introduction(doc, map_paths: dict = None):
 
 def add_existing_conditions_intro(doc):
     add_section_heading(doc, "3.0 EXISTING CONDITIONS")
-    add_body(doc, (
-        f"The inspection covered all council-managed roads and footpaths along {PROJECT['streets_inspected']} "
-        f"within the zone of influence of the proposed development at {PROJECT['address']}. "
-        f"The roads and pathways were found to be in fair to poor condition with some cracks present "
-        f"typical for the age of the infrastructure. Photos and description of condition can be found overleaf."
-    ))
+    add_mixed_para(doc, [
+        ("The inspection covered all council-managed roads and footpaths along ", False),
+        (PROJECT["streets_inspected"], True),
+        (" within the zone of influence of the proposed development at ", False),
+        (PROJECT["address"], True),
+        (". The roads and pathways were found to be in fair to poor condition with some cracks present "
+         "typical for the age of the infrastructure. Photos and description of condition can be found overleaf.", False),
+    ])
     doc.add_paragraph()
     add_sub_label(doc, "SURROUNDING ROAD AND PATHWAYS")
     doc.add_paragraph()
@@ -536,12 +545,14 @@ def _add_signature_table(doc):
 def add_conclusion(doc):
     doc.add_page_break()
     add_section_heading(doc, "4.0 CONCLUSION")
-    add_body(doc, (
-        f"The inspection covered all council-managed roads and footpaths along {PROJECT['streets_inspected']} "
-        f"within the zone of influence of the proposed development at {PROJECT['address']}. "
-        f"The roads and pathways were found to be in reasonable to poor condition with some cracks present "
-        f"typical for the age of the infrastructure. No signs of significant structural distress were observed."
-    ))
+    add_mixed_para(doc, [
+        ("The inspection covered all council-managed roads and footpaths along ", False),
+        (PROJECT["streets_inspected"], True),
+        (" within the zone of influence of the proposed development at ", False),
+        (PROJECT["address"], True),
+        (". The roads and pathways were found to be in reasonable to poor condition with some cracks present "
+         "typical for the age of the infrastructure. No signs of significant structural distress were observed.", False),
+    ])
     add_body(doc, (
         "The roads and footpaths were inspected on both sides of the roads. Across the road and footpaths there "
         "was cracking present which showed typical wear of council assets. These items have been documented in "

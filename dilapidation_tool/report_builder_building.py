@@ -34,6 +34,16 @@ def add_body(doc, text, size=12, bold=None, italic=None, align=WD_ALIGN_PARAGRAP
     return p
 
 
+def add_mixed_para(doc, parts):
+    """Add a paragraph with mixed bold/plain runs.
+    parts: list of (text, bold) — e.g. [("plain ", False), ("bold", True), (".", False)]
+    """
+    p = doc.add_paragraph()
+    for text, bold in parts:
+        set_run(p.add_run(text), size=12, bold=(True if bold else None))
+    return p
+
+
 def add_section_heading(doc, text):
     """Heading 1 with explicit bold + underline stamped on the run so they
     cannot be overridden by differing style definitions across templates."""
@@ -395,12 +405,13 @@ def add_introduction(doc, map_paths: dict = None):
 
 def add_existing_conditions_intro(doc):
     add_section_heading(doc, "3.0 EXISTING CONDITIONS")
-    add_body(doc, (
-        f"The inspection covered all accessible external facades and internal areas of the property "
-        f"at {PROJECT['address']}. The property was found to be in generally fair condition with "
-        f"some defects present typical for the age of the structure. Photos and descriptions of "
-        f"condition can be found in the appendices overleaf."
-    ))
+    add_mixed_para(doc, [
+        ("The inspection covered all accessible external facades and internal areas of the property at ", False),
+        (PROJECT["address"], True),
+        (". The property was found to be in generally fair condition with some defects present typical "
+         "for the age of the structure. Photos and descriptions of condition can be found in the "
+         "appendices overleaf.", False),
+    ])
     doc.add_paragraph()
 
 
@@ -576,12 +587,13 @@ def _add_signature_table(doc):
 def add_conclusion(doc):
     doc.add_page_break()
     add_section_heading(doc, "4.0 CONCLUSION")
-    add_body(doc, (
-        f"The inspection covered all accessible external facades and internal areas of the property "
-        f"at {PROJECT['address']}. The property was found to be in generally fair to good condition "
-        f"with some defects present typical for the age of the structure. No signs of significant "
-        f"structural distress attributable to the neighbouring development were observed."
-    ))
+    add_mixed_para(doc, [
+        ("The inspection covered all accessible external facades and internal areas of the property at ", False),
+        (PROJECT["address"], True),
+        (". The property was found to be in generally fair to good condition with some defects present "
+         "typical for the age of the structure. No signs of significant structural distress attributable "
+         "to the neighbouring development were observed.", False),
+    ])
     add_body(doc, (
         f"A total of {PROJECT['total_photos']} photos was taken during our inspection "
         f"({PROJECT['inspection_date']}). A full set of photos can be downloaded via the "
