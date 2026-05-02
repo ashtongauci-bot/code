@@ -11,13 +11,19 @@ from config import PROJECT
 TNR = "Times New Roman"
 
 
-def set_run(run, size=None, bold=False, italic=False, underline=False, font_name=TNR):
-    run.font.name = font_name
-    if size:
+def set_run(run, size=None, bold=None, italic=None, underline=None, font_name=TNR):
+    """Apply run formatting. Pass None (default) to leave a property unset so
+    the paragraph style can define it. Pass True/False to override explicitly."""
+    if font_name:
+        run.font.name = font_name
+    if size is not None:
         run.font.size = Pt(size)
-    run.bold = bold
-    run.italic = italic
-    run.underline = underline
+    if bold is not None:
+        run.bold = bold
+    if italic is not None:
+        run.italic = italic
+    if underline is not None:
+        run.underline = underline
 
 
 def add_cover_page(doc, cover_photo: str = None):

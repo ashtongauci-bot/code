@@ -11,16 +11,22 @@ from config import PROJECT
 TNR = "Times New Roman"
 
 
-def set_run(run, size=None, bold=False, italic=False, underline=False, font_name=TNR):
-    run.font.name = font_name
-    if size:
+def set_run(run, size=None, bold=None, italic=None, underline=None, font_name=TNR):
+    """Apply run formatting. Pass None (default) to leave a property unset so
+    the paragraph style can define it. Pass True/False to override explicitly."""
+    if font_name:
+        run.font.name = font_name
+    if size is not None:
         run.font.size = Pt(size)
-    run.bold = bold
-    run.italic = italic
-    run.underline = underline
+    if bold is not None:
+        run.bold = bold
+    if italic is not None:
+        run.italic = italic
+    if underline is not None:
+        run.underline = underline
 
 
-def add_body(doc, text, size=12, bold=False, italic=False, align=WD_ALIGN_PARAGRAPH.LEFT):
+def add_body(doc, text, size=12, bold=None, italic=None, align=WD_ALIGN_PARAGRAPH.LEFT):
     p = doc.add_paragraph()
     p.alignment = align
     run = p.add_run(text)
@@ -29,13 +35,22 @@ def add_body(doc, text, size=12, bold=False, italic=False, align=WD_ALIGN_PARAGR
 
 
 def add_section_heading(doc, text):
-    """Heading 1 – all visual formatting delegated to the Heading 1 paragraph style."""
+    """Heading 1 with explicit bold + underline stamped on the run so they
+    cannot be overridden by differing style definitions across templates."""
     p = doc.add_paragraph(style="Heading 1")
     run = p.add_run(text)
     rPr = run._r.get_or_add_rPr()
-    rFonts = OxmlElement("w:rFonts")
-    rFonts.set(qn("w:cs"), "Times New Roman")
-    rPr.append(rFonts)
+    for tag, attrs in [
+        ("w:rFonts", {"w:ascii": TNR, "w:hAnsi": TNR, "w:cs": TNR}),
+        ("w:b",      {}),
+        ("w:color",  {"w:val": "000000"}),
+        ("w:sz",     {"w:val": "24"}),
+        ("w:u",      {"w:val": "single"}),
+    ]:
+        el = OxmlElement(tag)
+        for k, v in attrs.items():
+            el.set(qn(k), v)
+        rPr.append(el)
     return p
 
 
