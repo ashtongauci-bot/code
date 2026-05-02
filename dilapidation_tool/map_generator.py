@@ -255,6 +255,60 @@ def fetch_street_view(address: str, output_dir: Path) -> str | None:
     return cover_path
 
 
+def _offset_lat_lon(lat: float, lon: float, distance_m: float, bearing_deg: float) -> tuple[float, float]:
+    """Offset a lat/lon by distance_m metres at bearing_deg degrees from north."""
+    R = 6378137.0
+    bearing_rad = math.radians(bearing_deg)
+    new_lat = math.asin(
+        math.sin(math.radians(lat)) * math.cos(distance_m / R)
+        + math.cos(math.radians(lat)) * math.sin(distance_m / R) * math.cos(bearing_rad)
+    )
+    new_lon = math.radians(lon) + math.atan2(
+        math.sin(bearing_rad) * math.sin(distance_m / R) * math.cos(math.radians(lat)),
+        math.cos(distance_m / R) - math.sin(math.radians(lat)) * math.sin(new_lat),
+    )
+    return math.degrees(new_lat), math.degrees(new_lon)
+
+
+def _calculate_street_bearing(coords: list[tuple[float, float]]) -> float:
+    """
+    Estimate the primary street bearing (degrees from north) from a list of GPS coords.
+    Returns a value in [0, 180) — we don't distinguish direction, only orientation.
+    """
+    if len(coords) < 2:
+        return 90.0  # default east-west
+
+    lats = [c[0] for c in coords]
+    lons = [c[1] for c in coords]
+    lat_spread = max(lats) - min(lats)
+    # Scale lon spread by cos(lat) so it's comparable in metres
+    lon_spread = (max(lons) - min(lons)) * math.cos(math.radians(sum(lats) / len(lats)))
+
+    if lon_spread >= lat_spread:
+        return 90.0   # wider east-west → street runs E-W
+    return 0.0        # taller north-south → street runs N-S
+
+
+def _draw_dashed_line(draw: ImageDraw, start: tuple, end: tuple, fill, width: int = 2,
+                      dash: int = 12, gap: int = 6):
+    """Draw a dashed line between two pixel points."""
+    dx = end[0] - start[0]
+    dy = end[1] - start[1]
+    length = math.hypot(dx, dy)
+    if length == 0:
+        return
+    ux, uy = dx / length, dy / length
+    pos = 0.0
+    while pos < length:
+        end_pos = min(pos + dash, length)
+        draw.line(
+            [(int(start[0] + ux * pos), int(start[1] + uy * pos)),
+             (int(start[0] + ux * end_pos), int(start[1] + uy * end_pos))],
+            fill=fill, width=width,
+        )
+        pos += dash + gap
+
+
 def draw_property_overlay(draw: ImageDraw, img: Image.Image, centre_lat: float, centre_lon: float,
                           prop_lat: float, prop_lon: float, zoom: int,
                           colour_fill, colour_border, label: str, address: str):
@@ -298,6 +352,92 @@ def draw_property_overlay(draw: ImageDraw, img: Image.Image, centre_lat: float, 
     draw.text((px - half_w + 5, addr_y), address, fill="white", font=font)
 
     return draw
+
+
+# ─── CORRIDOR MAP ──────────────────────────────────────────────────────────────
+
+def _generate_corridor_map(site_lat: float, site_lon: float,
+                           coords: list[tuple[float, float]], output_dir: Path) -> str:
+    """
+    Generate a corridor map showing a 50m-each-direction inspection zone along the street.
+    The corridor is a semi-transparent orange band centred on the site address.
+    """
+    zoom = 18
+    img = fetch_satellite_image(site_lat, site_lon, zoom)
+
+    street_bearing = _calculate_street_bearing(coords)
+    perp_bearing = (street_bearing + 90) % 360
+    half_width_m = 20   # metres each side of street centreline (covers road + footpaths)
+    reach_m = 50        # metres each direction along the street
+
+    # Four corners of the corridor polygon
+    # (+along, +perp), (+along, -perp), (-along, -perp), (-along, +perp)
+    corner_offsets = [
+        (reach_m,  half_width_m),
+        (reach_m,  -half_width_m),
+        (-reach_m, -half_width_m),
+        (-reach_m,  half_width_m),
+    ]
+    corners_px = []
+    for along, perp in corner_offsets:
+        lat1, lon1 = _offset_lat_lon(site_lat, site_lon, along, street_bearing)
+        lat2, lon2 = _offset_lat_lon(lat1, lon1, perp, perp_bearing)
+        corners_px.append(lat_lon_to_pixel(lat2, lon2, site_lat, site_lon, zoom, img.width, img.height))
+
+    # Semi-transparent orange corridor fill
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ov_draw = ImageDraw.Draw(overlay)
+    ov_draw.polygon(corners_px, fill=(255, 165, 0, 90))
+    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    # Corridor outline
+    for i in range(4):
+        draw.line([corners_px[i], corners_px[(i + 1) % 4]], fill=(255, 165, 0), width=3)
+
+    # Dashed centreline along the street
+    end_a_px = lat_lon_to_pixel(
+        *_offset_lat_lon(site_lat, site_lon, reach_m, street_bearing),
+        site_lat, site_lon, zoom, img.width, img.height,
+    )
+    end_b_px = lat_lon_to_pixel(
+        *_offset_lat_lon(site_lat, site_lon, -reach_m, street_bearing),
+        site_lat, site_lon, zoom, img.width, img.height,
+    )
+    _draw_dashed_line(draw, end_b_px, end_a_px, fill=(255, 255, 255), width=2)
+
+    # Site centre pin (red circle)
+    sx, sy = lat_lon_to_pixel(site_lat, site_lon, site_lat, site_lon, zoom, img.width, img.height)
+    draw.ellipse([sx - 10, sy - 10, sx + 10, sy + 10], fill="red", outline="white", width=3)
+
+    try:
+        font = ImageFont.truetype("arial.ttf", 16)
+        font_sm = ImageFont.truetype("arial.ttf", 14)
+    except Exception:
+        font = ImageFont.load_default()
+        font_sm = font
+
+    # "50m" labels at each end of the corridor centreline
+    for end_px, side_label in [(end_a_px, "50m"), (end_b_px, "50m")]:
+        lx, ly = end_px[0] - 22, end_px[1] - 22
+        draw.rectangle([lx - 3, ly - 3, lx + 50, ly + 22], fill=(0, 0, 0, 180))
+        draw.text((lx, ly), f"← {side_label} →", fill="white", font=font_sm)
+
+    # Dimension line showing full 100m span
+    mid_top = ((corners_px[0][0] + corners_px[3][0]) // 2, min(corners_px[0][1], corners_px[3][1]) - 18)
+    dim_lx = mid_top[0] - 50
+    draw.rectangle([dim_lx - 4, mid_top[1] - 4, dim_lx + 100 + 4, mid_top[1] + 20], fill=(0, 0, 0, 180))
+    draw.text((dim_lx, mid_top[1]), f"← 100m total corridor →", fill=(255, 165, 0), font=font_sm)
+
+    draw_north_arrow(draw, img.width - 70, 80)
+    draw_scale_bar(draw, img, site_lat, zoom)
+    draw_title_box(draw, img,
+                   "Figure 3 – 50m Inspection Corridor",
+                   f"{PROJECT['address']} (Not to Scale)")
+
+    path = str(output_dir / "figure3_corridor.png")
+    img.save(path)
+    return path
 
 
 # ─── MAIN MAP GENERATION ───────────────────────────────────────────────────────
@@ -346,9 +486,9 @@ def generate_maps(photos_dir: Path, output_dir: Path) -> dict[str, str]:
     print("  Generating Figure 2 - Property Site Map...")
     fig2_path = _generate_property_map(site_lat, site_lon, dev_lat, dev_lon, output_dir)
 
-    # Step 6: Generate Figure 3 - Inspection Zone (photo GPS points)
-    print("  Generating Figure 3 - Inspection Zone Map...")
-    fig3_path = _generate_inspection_map(site_lat, site_lon, coords, output_dir)
+    # Step 6: Generate Figure 3 - 50m Corridor Map
+    print("  Generating Figure 3 - 50m Inspection Corridor Map...")
+    fig3_path = _generate_corridor_map(site_lat, site_lon, coords, output_dir)
 
     print(f"  Maps saved to: {output_dir}")
     return {"figure1": fig1_path, "figure2": fig2_path, "figure3": fig3_path, "cover": cover_path}

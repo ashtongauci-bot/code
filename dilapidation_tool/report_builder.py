@@ -209,7 +209,8 @@ def add_introduction(doc, map_paths: dict = None):
     add_section_heading(doc, "2.0 INTRODUCTION")
     add_body(doc, (
         f"The inspection focused conditions to the council assets that surround {PROJECT['address']}. "
-        f"The extent of which is highlighted in Figure 1 below."
+        f"The locality of the site is shown in Figure 1 below. The 50m inspection corridor extending "
+        f"either side of the subject address is illustrated in Figure 3."
     ))
     doc.add_paragraph()
 
@@ -258,12 +259,12 @@ def add_introduction(doc, map_paths: dict = None):
 
     doc.add_paragraph()
 
-    # Figure 3 - Inspection Zone Map
+    # Figure 3 - 50m Inspection Corridor
     if map_paths.get("figure3"):
-        add_map_figure(doc, map_paths["figure3"], "Figure 3 – Inspection Zone Map (Not to Scale)")
+        add_map_figure(doc, map_paths["figure3"], "Figure 3 – 50m Inspection Corridor (Not to Scale)")
     else:
         p = doc.add_paragraph()
-        run = p.add_run("Figure 3 – Inspection Zone Map (Not to Scale)")
+        run = p.add_run("Figure 3 – 50m Inspection Corridor (Not to Scale)")
         set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
