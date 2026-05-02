@@ -129,6 +129,17 @@ def add_cover_page(doc, cover_photo: str = None):
 
     doc.add_paragraph()
 
+    # Date / Ref block — placed before photo so they stay on the cover page
+    for label, value in [
+        ("Date:", PROJECT["report_date"]),
+        ("Ref:", PROJECT["ref"]),
+    ]:
+        p = doc.add_paragraph()
+        run = p.add_run(f"{label}\t{value}")
+        set_run(run, size=12)
+
+    doc.add_paragraph()
+
     # Cover photo - use Street View or manual cover.jpg
     manual_cover = Path(__file__).parent / "photos" / "cover.jpg"
     photo_to_use = cover_photo or (str(manual_cover) if manual_cover.exists() else None)
@@ -144,17 +155,6 @@ def add_cover_page(doc, cover_photo: str = None):
         run = p.add_run("[Cover photo – auto-generated or place cover.jpg in photos folder]")
         run.italic = True
         set_run(run, size=11)
-
-    doc.add_paragraph()
-
-    # Date / Ref block (cover page bottom)
-    for label, value in [
-        ("Date:", PROJECT["report_date"]),
-        ("Ref:", PROJECT["ref"]),
-    ]:
-        p = doc.add_paragraph()
-        run = p.add_run(f"{label}\t{value}")
-        set_run(run, size=12)
 
     # 14 spacer paragraphs push the info block toward the bottom of the cover page
     for _ in range(14):

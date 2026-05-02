@@ -68,7 +68,18 @@ def add_cover_page(doc, cover_photo: str = None):
 
     doc.add_paragraph()
 
-    # Cover photo - use Street View if available, otherwise placeholder
+    # Date and Ref — placed before photo so they stay on the cover page
+    for label, value in [
+        ("Date:", PROJECT["report_date"]),
+        ("Ref:", PROJECT["ref"]),
+    ]:
+        p = doc.add_paragraph()
+        run = p.add_run(f"{label}\t{value}")
+        set_run(run, size=12)
+
+    doc.add_paragraph()
+
+    # Cover photo
     if cover_photo and Path(cover_photo).exists():
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -77,17 +88,6 @@ def add_cover_page(doc, cover_photo: str = None):
     else:
         doc.add_paragraph()
         doc.add_paragraph()
-
-    doc.add_paragraph()
-
-    # Metadata block (bottom of cover)
-    for label, value in [
-        ("Date:", PROJECT["report_date"]),
-        ("Ref:", PROJECT["ref"]),
-    ]:
-        p = doc.add_paragraph()
-        run = p.add_run(f"{label}\t{value}")
-        set_run(run, size=12)
 
     doc.add_page_break()
 
