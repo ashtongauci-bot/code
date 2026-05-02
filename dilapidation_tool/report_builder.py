@@ -282,7 +282,7 @@ def add_map_figure(doc, image_path: str, caption: str):
     except Exception:
         p.add_run(f"[Map image not found: {image_path}]")
     cap = doc.add_paragraph()
-    cap.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = cap.add_run(caption)
     set_run(run, size=12, bold=True, italic=True)
 

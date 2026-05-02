@@ -293,6 +293,7 @@ def add_introduction(doc, map_paths: dict = None):
         run = p.add_run()
         run.add_picture(str(fig3), width=Inches(5.49))
         cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = cap.add_run("Figure 3 – AS2870 Classification of Damage Due to Foundation Movements")
         set_run(run, size=12, bold=True, italic=True)
         doc.add_paragraph()
@@ -307,6 +308,7 @@ def add_introduction(doc, map_paths: dict = None):
         run = p.add_run()
         run.add_picture(str(fig4), width=Inches(5.49))
         cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = cap.add_run("Figure 4 – Table 3.02 Damage to Walls Caused by Movement of Slabs and Footings")
         set_run(run, size=12, bold=True, italic=True)
     else:
@@ -328,6 +330,7 @@ def add_introduction(doc, map_paths: dict = None):
         run = p.add_run()
         run.add_picture(str(fig5), width=Inches(5.49))
         cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = cap.add_run("Figure 5 – NSW Guide to Standards and Tolerances, 2017 (NSWGST) Extract")
         set_run(run, size=12, bold=True, italic=True)
     else:
