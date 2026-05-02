@@ -544,6 +544,12 @@ def add_photo_section_table(doc, photos: list[dict]):
 
 # ─── CONCLUSION ───────────────────────────────────────────────────────────────
 
+def _add_signature_table(doc):
+    """Two-column signature block: Yours faithfully (left) / Reviewed by (right)."""
+    from report_builder import _add_signature_table as _shared_sig
+    _shared_sig(doc)
+
+
 def add_conclusion(doc):
     doc.add_page_break()
     add_section_heading(doc, "4.0 CONCLUSION")
@@ -566,18 +572,7 @@ def add_conclusion(doc):
 
     doc.add_paragraph()
     doc.add_paragraph()
-
-    p = doc.add_paragraph()
-    set_run(p.add_run("Yours faithfully,"), size=12)
-    doc.add_paragraph()
-    doc.add_paragraph()
-
-    p = doc.add_paragraph()
-    set_run(p.add_run(PROJECT["inspector_name"]), size=12, bold=True)
-    p = doc.add_paragraph()
-    set_run(p.add_run(PROJECT["inspector_quals"]), size=12, italic=True)
-    p = doc.add_paragraph()
-    set_run(p.add_run(f"For, and on behalf of, {PROJECT['company']}."), size=12)
+    _add_signature_table(doc)
 
 
 # ─── MAIN BUILD ───────────────────────────────────────────────────────────────

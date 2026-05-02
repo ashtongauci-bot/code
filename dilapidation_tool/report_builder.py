@@ -424,6 +424,70 @@ def add_direction_heading(doc, section_name: str):
     doc.add_paragraph()
 
 
+def _add_signature_table(doc):
+    """
+    Two-column signature block matching the template:
+      Left:  Yours faithfully  |  Right: Reviewed by
+             [sig image]       |         [sig image]
+             Bold Name         |         Bold Name
+             Italic quals      |         Italic quals
+    """
+    base = Path(__file__).parent
+    inspector_sig = base / "inspector_signature.png"
+    reviewer_sig  = base / "reviewer_signature.png"
+
+    inspector_full = f"{PROJECT.get('inspector_title', '')} {PROJECT['inspector_name']}".strip()
+    reviewer_full  = PROJECT.get("reviewer_name", "")
+
+    table = doc.add_table(rows=1, cols=2)
+    table.style = "Normal Table"
+
+    # Remove all table + cell borders
+    tbl = table._tbl
+    tblPr = tbl.find(qn("w:tblPr")) or OxmlElement("w:tblPr")
+    if tbl.find(qn("w:tblPr")) is None:
+        tbl.insert(0, tblPr)
+    tblBorders = OxmlElement("w:tblBorders")
+    for side in ["top", "left", "bottom", "right", "insideH", "insideV"]:
+        el = OxmlElement(f"w:{side}")
+        el.set(qn("w:val"), "none")
+        tblBorders.append(el)
+    tblPr.append(tblBorders)
+
+    def _fill_col(cell, label, sig_path, full_name, quals):
+        # "Yours faithfully," / "Reviewed by,"
+        p = cell.paragraphs[0]
+        set_run(p.add_run(label), size=12)
+
+        # Signature image or blank space
+        p_sig = cell.add_paragraph()
+        if sig_path.exists():
+            p_sig.add_run().add_picture(str(sig_path), height=Inches(0.6))
+        else:
+            for _ in range(3):
+                cell.add_paragraph()
+
+        # Bold name
+        p_name = cell.add_paragraph()
+        set_run(p_name.add_run(full_name), size=12, bold=True)
+
+        # Italic quals (multiline-safe)
+        for line in quals.split("\n"):
+            p_q = cell.add_paragraph()
+            set_run(p_q.add_run(line), size=12, italic=True)
+
+    left_cell  = table.cell(0, 0)
+    right_cell = table.cell(0, 1)
+    _fill_col(left_cell,  "Yours faithfully,", inspector_sig,
+              inspector_full, PROJECT.get("inspector_quals", ""))
+    _fill_col(right_cell, "Reviewed by,",      reviewer_sig,
+              reviewer_full,  PROJECT.get("reviewer_quals", ""))
+
+    doc.add_paragraph()
+    p = doc.add_paragraph()
+    set_run(p.add_run(f"For, and on behalf of, {PROJECT['company']}."), size=12)
+
+
 def add_conclusion(doc):
     doc.add_page_break()
     add_section_heading(doc, "4.0 CONCLUSION")
@@ -449,26 +513,7 @@ def add_conclusion(doc):
 
     doc.add_paragraph()
     doc.add_paragraph()
-
-    # Signature block
-    p = doc.add_paragraph()
-    r1 = p.add_run("Yours faithfully,")
-    set_run(r1, size=12)
-
-    doc.add_paragraph()
-    doc.add_paragraph()
-
-    p = doc.add_paragraph()
-    r1 = p.add_run(PROJECT["inspector_name"])
-    set_run(r1, size=12, bold=True)
-
-    p = doc.add_paragraph()
-    r1 = p.add_run(PROJECT["inspector_quals"])
-    set_run(r1, size=12, italic=True)
-
-    p = doc.add_paragraph()
-    r1 = p.add_run(f"For, and on behalf of, {PROJECT['company']}.")
-    set_run(r1, size=12)
+    _add_signature_table(doc)
 
 
 def build_report(all_photos: list[dict], output_path: str, template_path: str = None, map_paths: dict = None):
