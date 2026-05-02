@@ -5,7 +5,7 @@ import math
 import requests
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
-from config import PROJECT, GOOGLE_MAPS_API_KEY
+from config import PROJECT, GOOGLE_MAPS_API_KEY, REPORT_TYPE
 
 # Map output size
 MAP_WIDTH = 1200
@@ -129,21 +129,58 @@ def metres_per_pixel(lat: float, zoom: int) -> float:
 # ─── DRAWING HELPERS ───────────────────────────────────────────────────────────
 
 def draw_north_arrow(draw: ImageDraw, x: int, y: int, size: int = 50):
-    """Draw a north arrow at (x, y)."""
-    # Arrow shaft
+    """Simple north arrow (used for council assets maps)."""
     draw.line([(x, y + size // 2), (x, y - size // 2)], fill="white", width=3)
-    # Arrowhead
     draw.polygon([
         (x, y - size // 2),
         (x - size // 6, y - size // 6),
         (x + size // 6, y - size // 6),
     ], fill="white")
-    # "N" label
     try:
         font = ImageFont.truetype("arial.ttf", size // 2)
     except Exception:
         font = ImageFont.load_default()
     draw.text((x - size // 6, y + size // 2 + 4), "N", fill="white", font=font)
+
+
+def draw_north_arrow_compass(draw: ImageDraw, img: Image.Image, x: int, y: int, size: int = 55):
+    """
+    Compass-style north indicator: red north diamond, white south diamond, 'N' label.
+    Matches the style shown in the building report template image.
+    """
+    half_w = size // 3
+    north_tip = (x, y - int(size * 0.65))
+    south_tip = (x, y + int(size * 0.35))
+    left = (x - half_w, y)
+    right = (x + half_w, y)
+    centre = (x, y)
+
+    # White circle background
+    r = size // 2 + 8
+    bg_overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    bg_draw = ImageDraw.Draw(bg_overlay)
+    bg_draw.ellipse([x - r, y - r, x + r, y + r], fill=(255, 255, 255, 220))
+    merged = Image.alpha_composite(img.convert("RGBA"), bg_overlay)
+    img.paste(merged.convert("RGB"))
+    draw = ImageDraw.Draw(img)
+
+    # Red north half
+    draw.polygon([north_tip, right, centre, left], fill=(210, 30, 30), outline=(0, 0, 0), width=1)
+    # White south half
+    draw.polygon([centre, right, south_tip, left], fill=(255, 255, 255), outline=(0, 0, 0), width=1)
+
+    # "N" label above north tip
+    try:
+        font = ImageFont.truetype("arialbd.ttf", size // 3)
+    except Exception:
+        try:
+            font = ImageFont.truetype("arial.ttf", size // 3)
+        except Exception:
+            font = ImageFont.load_default()
+    nw = size // 3
+    draw.text((x - nw // 2, north_tip[1] - nw - 4), "N", fill=(0, 0, 0), font=font)
+
+    return draw
 
 
 def draw_scale_bar(draw: ImageDraw, img: Image.Image, lat: float, zoom: int):
@@ -484,7 +521,10 @@ def generate_maps(photos_dir: Path, output_dir: Path) -> dict[str, str]:
 
     # Step 5: Generate Figure 2 - Property Site Map (zoomed in with overlays)
     print("  Generating Figure 2 - Property Site Map...")
-    fig2_path = _generate_property_map(site_lat, site_lon, dev_lat, dev_lon, output_dir)
+    if REPORT_TYPE == "building":
+        fig2_path = _generate_building_property_map(site_lat, site_lon, dev_lat, dev_lon, output_dir)
+    else:
+        fig2_path = _generate_property_map(site_lat, site_lon, dev_lat, dev_lon, output_dir)
 
     # Step 6: Generate Figure 3 - 50m Corridor Map
     print("  Generating Figure 3 - 50m Inspection Corridor Map...")
@@ -492,6 +532,94 @@ def generate_maps(photos_dir: Path, output_dir: Path) -> dict[str, str]:
 
     print(f"  Maps saved to: {output_dir}")
     return {"figure1": fig1_path, "figure2": fig2_path, "figure3": fig3_path, "cover": cover_path}
+
+
+def _draw_lot_rectangle(img: Image.Image, centre_lat: float, centre_lon: float,
+                        prop_lat: float, prop_lon: float, zoom: int,
+                        half_w_m: float, half_h_m: float,
+                        fill_rgba: tuple, border_rgb: tuple,
+                        label: str, address: str):
+    """
+    Draw a semi-transparent lot rectangle with white-background text labels
+    matching the building report template style (label left, address right).
+    Returns the updated draw handle.
+    """
+    mpp = metres_per_pixel(centre_lat, zoom)
+    hw = int(half_w_m / mpp)
+    hh = int(half_h_m / mpp)
+    px, py = lat_lon_to_pixel(prop_lat, prop_lon, centre_lat, centre_lon, zoom, img.width, img.height)
+
+    # Semi-transparent fill
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ov_draw = ImageDraw.Draw(overlay)
+    ov_draw.rectangle([px - hw, py - hh, px + hw, py + hh], fill=fill_rgba)
+    merged = Image.alpha_composite(img.convert("RGBA"), overlay)
+    img.paste(merged.convert("RGB"))
+
+    draw = ImageDraw.Draw(img)
+    # Clean border
+    draw.rectangle([px - hw, py - hh, px + hw, py + hh], outline=border_rgb, width=3)
+
+    try:
+        font = ImageFont.truetype("arial.ttf", 15)
+    except Exception:
+        font = ImageFont.load_default()
+
+    pad = 6
+    # Category label — white bg, left side of rectangle
+    lw = int(len(label) * 8.5) + pad * 2
+    lh = 22
+    lx = px - hw + 6
+    ly = py - hh // 2 - lh // 2
+    draw.rectangle([lx - pad, ly - pad // 2, lx + lw, ly + lh], fill=(255, 255, 255, 230))
+    draw.text((lx, ly), label, fill=(0, 0, 0), font=font)
+
+    # Address label — white bg, right side of rectangle
+    aw = int(len(address) * 8.5) + pad * 2
+    ax = px + hw - aw - 6
+    ay = py - hh // 2 - lh // 2
+    draw.rectangle([ax - pad, ay - pad // 2, ax + aw, ay + lh], fill=(255, 255, 255, 230))
+    draw.text((ax, ay), address, fill=(0, 0, 0), font=font)
+
+    return draw
+
+
+def _generate_building_property_map(site_lat, site_lon, dev_lat, dev_lon, output_dir):
+    """
+    Building-report property map: close satellite view, compass north arrow,
+    labelled lot rectangles, no title box — matching the template image style.
+    """
+    zoom = 19
+    img = fetch_satellite_image(site_lat, site_lon, zoom)
+
+    # Subject property — grey overlay
+    _draw_lot_rectangle(
+        img, site_lat, site_lon, site_lat, site_lon, zoom,
+        half_w_m=15, half_h_m=22,
+        fill_rgba=(180, 180, 180, 110),
+        border_rgb=(100, 100, 100),
+        label="Subject to Dilapidation",
+        address=PROJECT["address"].split(",")[0],
+    )
+
+    # Development property — green overlay
+    if dev_lat and dev_lon:
+        _draw_lot_rectangle(
+            img, site_lat, site_lon, dev_lat, dev_lon, zoom,
+            half_w_m=15, half_h_m=22,
+            fill_rgba=(0, 180, 0, 110),
+            border_rgb=(0, 150, 0),
+            label="Proposed development",
+            address=PROJECT.get("development_address", "").split(",")[0],
+        )
+
+    draw = ImageDraw.Draw(img)
+    # Compass north arrow — bottom right
+    draw_north_arrow_compass(draw, img, img.width - 80, img.height - 90)
+
+    path = str(output_dir / "figure2_building_property.png")
+    img.save(path)
+    return path
 
 
 def _generate_locality_map(site_lat, site_lon, coords, output_dir):
