@@ -314,6 +314,17 @@ def add_photo_table_entry(doc, photo: dict):
     # Create single-column table (no borders)
     table = doc.add_table(rows=1, cols=1)
     table.style = "Normal Table"
+
+    # Centre the table on the page
+    tbl = table._tbl
+    tblPr = tbl.find(qn("w:tblPr"))
+    if tblPr is None:
+        tblPr = OxmlElement("w:tblPr")
+        tbl.insert(0, tblPr)
+    jc = OxmlElement("w:jc")
+    jc.set(qn("w:val"), "center")
+    tblPr.append(jc)
+
     cell = table.cell(0, 0)
 
     # Remove all borders
@@ -326,9 +337,9 @@ def add_photo_table_entry(doc, photo: dict):
         tcBorders.append(border)
     tcPr.append(tcBorders)
 
-    # Set cell width (~120mm)
+    # Set cell width to match photo width (4.73 inches = 6811 dxa)
     tcW = OxmlElement("w:tcW")
-    tcW.set(qn("w:w"), "6810")
+    tcW.set(qn("w:w"), "6811")
     tcW.set(qn("w:type"), "dxa")
     tcPr.append(tcW)
 
