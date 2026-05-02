@@ -152,16 +152,13 @@ def add_cover_page(doc, cover_photo: str = None):
         doc.add_paragraph()
 
     # Report info block (bottom of cover page)
-    for label, value in [
-        ("Name:", f"Pre-Construction Dilapidation Report – {PROJECT['address']}"),
+    from report_builder import add_metadata_block, _short_address
+    short_addr = _short_address(PROJECT["address"])
+    add_metadata_block(doc, [
+        ("Name:",               f"Pre-Construction Dilapidation Report – {short_addr}"),
         ("Date of Inspection:", PROJECT["inspection_date"]),
-        ("To:", PROJECT["client"]),
-    ]:
-        p = doc.add_paragraph()
-        r1 = p.add_run(f"{label}\t")
-        set_run(r1, size=12, bold=True)
-        r2 = p.add_run(value)
-        set_run(r2, size=12)
+        ("To:",                 PROJECT["client"]),
+    ])
 
     doc.add_page_break()
 

@@ -93,20 +93,64 @@ def add_cover_page(doc, cover_photo: str = None):
     doc.add_page_break()
 
 
-def add_report_metadata(doc):
-    """Second page - report name, inspection date, client."""
-    for label, value in [
-        ("Name:", f"Pre-Construction Dilapidation Report – {PROJECT['address']} – Council Assets Surrounding"),
-        ("Date of Inspection:", PROJECT["inspection_date"]),
-        ("To:", PROJECT["client"]),
-    ]:
-        p = doc.add_paragraph()
-        r1 = p.add_run(f"{label}\t")
-        set_run(r1, size=12, bold=True)
-        r2 = p.add_run(value)
-        set_run(r2, size=12)
+def _short_address(full: str) -> str:
+    """Return 'Street, Suburb' from a full address (drops state / postcode)."""
+    parts = [p.strip() for p in full.split(",")]
+    return ", ".join(parts[:2])
+
+
+def add_metadata_block(doc, rows: list[tuple[str, str]]):
+    """
+    Render label/value pairs as a borderless 2-column table so values
+    always align regardless of label length — matching the template style.
+    """
+    table = doc.add_table(rows=len(rows), cols=2)
+    table.style = "Normal Table"
+
+    # Remove all table borders
+    tbl = table._tbl
+    tblPr = tbl.find(qn("w:tblPr"))
+    if tblPr is None:
+        tblPr = OxmlElement("w:tblPr")
+        tbl.insert(0, tblPr)
+    tblBorders = OxmlElement("w:tblBorders")
+    for side in ["top", "left", "bottom", "right", "insideH", "insideV"]:
+        el = OxmlElement(f"w:{side}")
+        el.set(qn("w:val"), "none")
+        tblBorders.append(el)
+    tblPr.append(tblBorders)
+
+    # Column widths: label ~1.6" (2304 dxa), value ~4.6" (6624 dxa)
+    for row_idx, (label, value) in enumerate(rows):
+        row = table.rows[row_idx]
+
+        # Label cell — fixed width, bold
+        lc = row.cells[0]
+        lc_tc = lc._tc
+        lc_tcPr = lc_tc.get_or_add_tcPr()
+        lc_w = OxmlElement("w:tcW")
+        lc_w.set(qn("w:w"), "2304")
+        lc_w.set(qn("w:type"), "dxa")
+        lc_tcPr.append(lc_w)
+        lp = lc.paragraphs[0]
+        set_run(lp.add_run(label), size=12, bold=True)
+
+        # Value cell
+        vc = row.cells[1]
+        vp = vc.paragraphs[0]
+        set_run(vp.add_run(value), size=12)
 
     doc.add_paragraph()
+
+
+def add_report_metadata(doc):
+    """Second page — report name, inspection date, client."""
+    short_addr = _short_address(PROJECT["address"])
+    add_metadata_block(doc, [
+        ("Name:",               f"Pre-Construction Dilapidation Report – {short_addr}"),
+        ("Date of Inspection:", PROJECT["inspection_date"]),
+        ("To:",                 PROJECT["client"]),
+    ])
 
 
 def add_contents(doc):
