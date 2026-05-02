@@ -254,21 +254,12 @@ def add_introduction(doc, map_paths: dict = None):
     r2 = p.add_run(PROJECT["address"])
     set_run(r2, size=12, bold=True)
     r3 = p.add_run(
-        ". The locality of the site is shown in Figure 1 below. The 50m inspection corridor "
-        "extending either side of the subject address is illustrated in Figure 3."
+        ". The 50m inspection corridor extending either side of the subject address "
+        "is illustrated in Figure 3."
     )
     set_run(r3, size=12)
     doc.add_paragraph()
 
-    # Figure 1 - Locality Plan
-    if map_paths.get("figure1"):
-        add_map_figure(doc, map_paths["figure1"], "Figure 1 – Site Locality Plan (Not to Scale)")
-    else:
-        p = doc.add_paragraph()
-        run = p.add_run("Figure 1 – Site Locality Plan (Not to Scale)")
-        set_run(run, size=12, bold=True, italic=True)
-
-    doc.add_paragraph()
     add_body(doc, (
         "The areas inspected include all road pavement surfaces, pathways, stairs, concrete footpaths, "
         "grass, kerb and gutters, vehicular crossings, in-ground service pits, street trees and signs within "
@@ -292,16 +283,6 @@ def add_introduction(doc, map_paths: dict = None):
         set_run(r1, size=12, bold=True)
         r2 = p.add_run(definition)
         set_run(r2, size=12)
-
-    doc.add_paragraph()
-
-    # Figure 2 - Property Site Map (subject + development overlays)
-    if map_paths.get("figure2"):
-        add_map_figure(doc, map_paths["figure2"], "Figure 2 – Site Property Map (Not to Scale)")
-    else:
-        p = doc.add_paragraph()
-        run = p.add_run("Figure 2 – Site Property Map (Not to Scale)")
-        set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
 

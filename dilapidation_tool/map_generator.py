@@ -468,33 +468,12 @@ def generate_maps(photos_dir: Path, output_dir: Path) -> dict[str, str]:
     print("  Fetching Street View cover photo...")
     cover_path = fetch_street_view(PROJECT["address"], output_dir)
 
-    # Geocode development address if provided
-    dev_lat, dev_lon = None, None
-    dev_address = PROJECT.get("development_address", "")
-    if dev_address:
-        try:
-            print(f"  Geocoding development address: {dev_address}")
-            dev_lat, dev_lon = geocode_address(dev_address)
-        except Exception as e:
-            print(f"  Warning: Could not geocode development address: {e}")
-
-    # Step 4: Generate Figure 1 - Locality Plan (zoomed out)
-    print("  Generating Figure 1 - Locality Plan...")
-    fig1_path = _generate_locality_map(site_lat, site_lon, coords, output_dir)
-
-    # Step 5: Generate Figure 2 - Property Site Map (zoomed in with overlays)
-    print("  Generating Figure 2 - Property Site Map...")
-    if REPORT_TYPE == "building":
-        fig2_path = _generate_building_property_map(site_lat, site_lon, dev_lat, dev_lon, output_dir)
-    else:
-        fig2_path = _generate_property_map(site_lat, site_lon, dev_lat, dev_lon, output_dir)
-
-    # Step 6: Generate Figure 3 - 50m Corridor Map
+    # Step 4: Generate Figure 3 - 50m Corridor Map
     print("  Generating Figure 3 - 50m Inspection Corridor Map...")
     fig3_path = _generate_corridor_map(site_lat, site_lon, coords, output_dir)
 
     print(f"  Maps saved to: {output_dir}")
-    return {"figure1": fig1_path, "figure2": fig2_path, "figure3": fig3_path, "cover": cover_path}
+    return {"figure3": fig3_path, "cover": cover_path}
 
 
 def _draw_lot_rectangle(img: Image.Image, centre_lat: float, centre_lon: float,

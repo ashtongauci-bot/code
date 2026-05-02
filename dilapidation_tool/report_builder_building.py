@@ -238,22 +238,8 @@ def add_introduction(doc, map_paths: dict = None):
     p = doc.add_paragraph()
     set_run(p.add_run("The inspection focused on the internal and external conditions to "), size=12)
     set_run(p.add_run(f"{PROJECT['address']}."), size=12, bold=True)
-    set_run(p.add_run(" The extent of which is highlighted in Figure 1 below."), size=12)
     doc.add_paragraph()
 
-    # Figure 1 - Locality Map
-    if map_paths.get("figure1"):
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run()
-        run.add_picture(map_paths["figure1"], width=Inches(6.0))
-        cap = doc.add_paragraph()
-        run = cap.add_run("Figure 1 – Site Locality Plan (Not to Scale)")
-        set_run(run, size=12, bold=True, italic=True)
-    else:
-        add_body(doc, "Figure 1 – Site Locality Plan (Not to Scale)", bold=True, italic=True)
-
-    doc.add_paragraph()
     add_body(doc, (
         "The areas inspected at this property include all external building facades and external "
         "site features. The internals for the property were also inspected as access was provided. "
@@ -300,22 +286,6 @@ def add_introduction(doc, map_paths: dict = None):
         "be useful in categorizing all cracking defects identified at our dilapidation survey inspection. "
         "Cracks in this report are therefore categorised as follows:"
     ), size=12)
-
-    doc.add_paragraph()
-
-    # Figure 2 - Property Site Map (subject + development overlays)
-    if map_paths.get("figure2"):
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run()
-        run.add_picture(map_paths["figure2"], width=Inches(6.0))
-        cap = doc.add_paragraph()
-        run = cap.add_run("Figure 2 – Site Property Map (Not to Scale)")
-        set_run(run, size=12, bold=True, italic=True)
-    else:
-        p = doc.add_paragraph()
-        run = p.add_run("Figure 2 – Site Property Map (Not to Scale)")
-        set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
 
