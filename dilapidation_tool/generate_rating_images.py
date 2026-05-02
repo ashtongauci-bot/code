@@ -263,10 +263,6 @@ def generate_rating_table(path: str):
 
 
 def ensure_rating_images(base_dir: Path):
-    """Generate rating images in base_dir if they don't already exist."""
-    graph_path = base_dir / "rating_graph.png"
-    table_path = base_dir / "rating_table.png"
-    if not graph_path.exists():
-        generate_rating_graph(str(graph_path))
-    if not table_path.exists():
-        generate_rating_table(str(table_path))
+    """Always (re)generate the council assets pavement rating images."""
+    generate_rating_graph(str(base_dir / "pavement_rating_graph.png"))
+    generate_rating_table(str(base_dir / "pavement_rating_table.png"))

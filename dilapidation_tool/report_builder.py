@@ -272,7 +272,7 @@ def add_introduction(doc, map_paths: dict = None):
     doc.add_paragraph()
 
     # Figure 4 - Pavement Rating Graph
-    rating_graph = Path(__file__).parent / "rating_graph.png"
+    rating_graph = Path(__file__).parent / "pavement_rating_graph.png"
     if rating_graph.exists():
         add_map_figure(doc, str(rating_graph), "Figure 4 – Graph Depicting Pavement Rating System")
     else:
@@ -283,7 +283,7 @@ def add_introduction(doc, map_paths: dict = None):
     doc.add_paragraph()
 
     # Figure 5 - Pavement Rating Table
-    rating_table = Path(__file__).parent / "rating_table.png"
+    rating_table = Path(__file__).parent / "pavement_rating_table.png"
     if rating_table.exists():
         add_map_figure(doc, str(rating_table), "Figure 5 – Table Describing Pavement Rating System in More Detail")
     else:
