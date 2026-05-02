@@ -156,15 +156,6 @@ def add_cover_page(doc, cover_photo: str = None):
         run = p.add_run(f"{label}\t{value}")
         set_run(run, size=12)
 
-    # Report info block (bottom of cover page)
-    from report_builder import add_metadata_block, _short_address
-    short_addr = _short_address(PROJECT["address"])
-    add_metadata_block(doc, [
-        ("Name:",               f"Pre-Construction Dilapidation Report – {short_addr}"),
-        ("Date of Inspection:", PROJECT["inspection_date"]),
-        ("To:",                 PROJECT["client"]),
-    ])
-
     doc.add_page_break()
 
 
@@ -182,7 +173,7 @@ def _toc_entry_para(doc, text, page_str):
     pPr.append(tabs)
 
     spacing = OxmlElement("w:spacing")
-    spacing.set(qn("w:before"), "240")
+    spacing.set(qn("w:before"), "480")
     spacing.set(qn("w:after"), "0")
     pPr.append(spacing)
 
@@ -240,6 +231,22 @@ def add_contents(doc):
     doc.paragraphs[-1]._p.append(r4)
 
     doc.add_page_break()
+
+
+def add_report_metadata(doc):
+    """Full-width metadata block — placed just above 1.0 PREAMBLE."""
+    from report_builder import _short_address
+    short_addr = _short_address(PROJECT["address"])
+    rows = [
+        ("Name:",               f"Pre-Construction Dilapidation Report – {short_addr}"),
+        ("Date of Inspection:", PROJECT["inspection_date"]),
+        ("To:",                 PROJECT["client"]),
+    ]
+    for label, value in rows:
+        p = doc.add_paragraph()
+        set_run(p.add_run(f"{label} "), size=12, bold=True)
+        set_run(p.add_run(value), size=12)
+    doc.add_paragraph()
 
 
 def add_preamble(doc):
@@ -627,9 +634,9 @@ def build_building_report(all_photos: list[dict], output_path: str,
             section.left_margin = Cm(1.5)
             section.right_margin = Cm(1.5)
 
-    # cover page now includes the Name/Date of Inspection/To block at the bottom
     add_cover_page(doc, cover_photo=map_paths.get("cover") if map_paths else None)
     add_contents(doc)
+    add_report_metadata(doc)
     add_preamble(doc)
     add_introduction(doc, map_paths=map_paths)
     add_existing_conditions_intro(doc)

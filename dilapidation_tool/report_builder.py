@@ -143,13 +143,18 @@ def add_metadata_block(doc, rows: list[tuple[str, str]]):
 
 
 def add_report_metadata(doc):
-    """Second page — report name, inspection date, client."""
+    """Full-width metadata block — placed just above 1.0 PREAMBLE."""
     short_addr = _short_address(PROJECT["address"])
-    add_metadata_block(doc, [
+    rows = [
         ("Name:",               f"Pre-Construction Dilapidation Report – {short_addr}"),
         ("Date of Inspection:", PROJECT["inspection_date"]),
         ("To:",                 PROJECT["client"]),
-    ])
+    ]
+    for label, value in rows:
+        p = doc.add_paragraph()
+        set_run(p.add_run(f"{label} "), size=12, bold=True)
+        set_run(p.add_run(value), size=12)
+    doc.add_paragraph()
 
 
 def _toc_entry_para(doc, text, page_str):
@@ -168,7 +173,7 @@ def _toc_entry_para(doc, text, page_str):
 
     # Space before each entry (~240 twips = 12pt) for the gap shown in template
     spacing = OxmlElement("w:spacing")
-    spacing.set(qn("w:before"), "240")
+    spacing.set(qn("w:before"), "480")
     spacing.set(qn("w:after"), "0")
     pPr.append(spacing)
 
@@ -593,8 +598,8 @@ def build_report(all_photos: list[dict], output_path: str, template_path: str = 
             section.right_margin = Cm(1.5)
 
     add_cover_page(doc, cover_photo=map_paths.get("cover") if map_paths else None)
-    add_report_metadata(doc)
     add_contents(doc)
+    add_report_metadata(doc)
     add_preamble(doc)
     add_introduction(doc, map_paths=map_paths)
     add_existing_conditions_intro(doc)
