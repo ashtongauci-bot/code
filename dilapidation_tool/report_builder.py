@@ -291,6 +291,8 @@ def add_introduction(doc, map_paths: dict = None):
     map_paths = map_paths or {}
     ensure_rating_images(Path(__file__).parent)
     add_section_heading(doc, "2.0 INTRODUCTION")
+
+    # Opening paragraph with bold address
     p = doc.add_paragraph()
     r1 = p.add_run("The inspection focused conditions to the council assets that surround ")
     set_run(r1, size=12)
@@ -301,6 +303,15 @@ def add_introduction(doc, map_paths: dict = None):
         "is illustrated in Figure 3."
     )
     set_run(r3, size=12)
+
+    # Figure 3 - 50m Inspection Corridor (directly after intro paragraph)
+    doc.add_paragraph()
+    if map_paths.get("figure3"):
+        add_map_figure(doc, map_paths["figure3"], "Figure 3 – 50m Inspection Corridor (Not to Scale)")
+    else:
+        p = doc.add_paragraph()
+        run = p.add_run("Figure 3 – 50m Inspection Corridor (Not to Scale)")
+        set_run(run, size=12, bold=True, italic=True)
     doc.add_paragraph()
 
     add_body(doc, (
@@ -326,16 +337,6 @@ def add_introduction(doc, map_paths: dict = None):
         set_run(r1, size=12, bold=True)
         r2 = p.add_run(definition)
         set_run(r2, size=12)
-
-    doc.add_paragraph()
-
-    # Figure 3 - 50m Inspection Corridor
-    if map_paths.get("figure3"):
-        add_map_figure(doc, map_paths["figure3"], "Figure 3 – 50m Inspection Corridor (Not to Scale)")
-    else:
-        p = doc.add_paragraph()
-        run = p.add_run("Figure 3 – 50m Inspection Corridor (Not to Scale)")
-        set_run(run, size=12, bold=True, italic=True)
 
     doc.add_paragraph()
 
