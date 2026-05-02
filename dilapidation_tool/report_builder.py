@@ -7,6 +7,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from pathlib import Path
 from config import PROJECT
+from generate_rating_images import ensure_rating_images
 
 TNR = "Times New Roman"
 
@@ -206,6 +207,7 @@ def add_map_figure(doc, image_path: str, caption: str):
 
 def add_introduction(doc, map_paths: dict = None):
     map_paths = map_paths or {}
+    ensure_rating_images(Path(__file__).parent)
     add_section_heading(doc, "2.0 INTRODUCTION")
     add_body(doc, (
         f"The inspection focused conditions to the council assets that surround {PROJECT['address']}. "
