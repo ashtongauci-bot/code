@@ -68,7 +68,19 @@ def add_cover_page(doc, cover_photo: str = None):
 
     doc.add_paragraph()
 
-    # Date and Ref — placed before photo so they stay on the cover page
+    # Cover photo — reduced to 5" wide so Date/Ref fit below on the same page
+    if cover_photo and Path(cover_photo).exists():
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run()
+        run.add_picture(str(cover_photo), width=Inches(5.0))
+    else:
+        doc.add_paragraph()
+        doc.add_paragraph()
+
+    doc.add_paragraph()
+
+    # Date and Ref
     for label, value in [
         ("Date:", PROJECT["report_date"]),
         ("Ref:", PROJECT["ref"]),
@@ -76,18 +88,6 @@ def add_cover_page(doc, cover_photo: str = None):
         p = doc.add_paragraph()
         run = p.add_run(f"{label}\t{value}")
         set_run(run, size=12)
-
-    doc.add_paragraph()
-
-    # Cover photo
-    if cover_photo and Path(cover_photo).exists():
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run()
-        run.add_picture(str(cover_photo), width=Inches(6.0))
-    else:
-        doc.add_paragraph()
-        doc.add_paragraph()
 
     doc.add_page_break()
 

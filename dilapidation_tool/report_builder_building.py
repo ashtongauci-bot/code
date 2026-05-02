@@ -129,18 +129,7 @@ def add_cover_page(doc, cover_photo: str = None):
 
     doc.add_paragraph()
 
-    # Date / Ref block — placed before photo so they stay on the cover page
-    for label, value in [
-        ("Date:", PROJECT["report_date"]),
-        ("Ref:", PROJECT["ref"]),
-    ]:
-        p = doc.add_paragraph()
-        run = p.add_run(f"{label}\t{value}")
-        set_run(run, size=12)
-
-    doc.add_paragraph()
-
-    # Cover photo - use Street View or manual cover.jpg
+    # Cover photo — reduced to 5.5" wide so Date/Ref fit below on the same page
     manual_cover = Path(__file__).parent / "photos" / "cover.jpg"
     photo_to_use = cover_photo or (str(manual_cover) if manual_cover.exists() else None)
 
@@ -148,7 +137,7 @@ def add_cover_page(doc, cover_photo: str = None):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
-        run.add_picture(str(photo_to_use), width=Inches(7.09), height=Inches(5.10))
+        run.add_picture(str(photo_to_use), width=Inches(5.5))
     else:
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -156,9 +145,16 @@ def add_cover_page(doc, cover_photo: str = None):
         run.italic = True
         set_run(run, size=11)
 
-    # 14 spacer paragraphs push the info block toward the bottom of the cover page
-    for _ in range(14):
-        doc.add_paragraph()
+    doc.add_paragraph()
+
+    # Date and Ref — after photo, same page
+    for label, value in [
+        ("Date:", PROJECT["report_date"]),
+        ("Ref:", PROJECT["ref"]),
+    ]:
+        p = doc.add_paragraph()
+        run = p.add_run(f"{label}\t{value}")
+        set_run(run, size=12)
 
     # Report info block (bottom of cover page)
     from report_builder import add_metadata_block, _short_address
