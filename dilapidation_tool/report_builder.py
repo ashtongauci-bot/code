@@ -110,25 +110,58 @@ def add_report_metadata(doc):
 
 
 def add_contents(doc):
-    # "CONTENTS" heading
+    # "CONTENTS" heading — bold + underlined to match template
     p = doc.add_paragraph()
-    try:
-        p.style = doc.styles["TOC Heading"]
-    except KeyError:
-        pass
     run = p.add_run("CONTENTS")
-    set_run(run, size=12, bold=True)
+    set_run(run, size=12, bold=True, underline=True)
 
-    # TOC entries
-    for entry in [
+    doc.add_paragraph()
+
+    # ── Proper updatable Word TOC field ──────────────────────────
+    # fldChar begin + instrText + fldChar separate in first paragraph
+    p_toc = doc.add_paragraph()
+    r1 = OxmlElement("w:r")
+    fc_begin = OxmlElement("w:fldChar")
+    fc_begin.set(qn("w:fldCharType"), "begin")
+    fc_begin.set(qn("w:dirty"), "true")   # tells Word to update on open
+    r1.append(fc_begin)
+    p_toc._p.append(r1)
+
+    r2 = OxmlElement("w:r")
+    instr = OxmlElement("w:instrText")
+    instr.set(qn("xml:space"), "preserve")
+    instr.text = ' TOC \\o "1-1" \\h \\z \\u '
+    r2.append(instr)
+    p_toc._p.append(r2)
+
+    r3 = OxmlElement("w:r")
+    fc_sep = OxmlElement("w:fldChar")
+    fc_sep.set(qn("w:fldCharType"), "separate")
+    r3.append(fc_sep)
+    p_toc._p.append(r3)
+
+    # Pre-populated entries (visible before user updates the field)
+    entries = [
         "1.0 PREAMBLE",
         "2.0 INTRODUCTION",
         "3.0 EXISTING CONDITIONS",
         "4.0 CONCLUSION",
-    ]:
-        p = doc.add_paragraph()
-        run = p.add_run(entry)
+    ]
+    for entry in entries:
+        p_entry = doc.add_paragraph()
+        try:
+            p_entry.style = doc.styles["TOC 1"]
+        except KeyError:
+            pass
+        run = p_entry.add_run(entry)
         set_run(run, size=12, italic=True)
+
+    # fldChar end appended to the last entry paragraph
+    r4 = OxmlElement("w:r")
+    fc_end = OxmlElement("w:fldChar")
+    fc_end.set(qn("w:fldCharType"), "end")
+    r4.append(fc_end)
+    doc.paragraphs[-1]._p.append(r4)
 
     doc.add_page_break()
 
@@ -168,12 +201,18 @@ def add_bullet(doc, text):
 
 def add_preamble(doc):
     add_section_heading(doc, "1.0 PREAMBLE")
-    add_body(doc, (
-        f"This pre-construction dilapidation report is based on visual inspection only. "
+    p = doc.add_paragraph()
+    r1 = p.add_run(
+        "This pre-construction dilapidation report is based on visual inspection only. "
         f"The purpose of this report is to provide a photographic record of the Council Assets along "
         f"{PROJECT['streets_inspected']}. The council assets include roads and footpaths within the zone of "
-        f"influence of the proposed construction site at {PROJECT['address']}."
-    ))
+        "influence of the proposed construction site at "
+    )
+    set_run(r1, size=12)
+    r2 = p.add_run(PROJECT["address"])
+    set_run(r2, size=12, bold=True)
+    r3 = p.add_run(".")
+    set_run(r3, size=12)
     add_body(doc, (
         f"This report also gives a brief descriptive record of any defects noted on the date of our inspection. "
         f"The inspection included all site features and accessible areas of the council assets as photographed "
@@ -209,11 +248,16 @@ def add_introduction(doc, map_paths: dict = None):
     map_paths = map_paths or {}
     ensure_rating_images(Path(__file__).parent)
     add_section_heading(doc, "2.0 INTRODUCTION")
-    add_body(doc, (
-        f"The inspection focused conditions to the council assets that surround {PROJECT['address']}. "
-        f"The locality of the site is shown in Figure 1 below. The 50m inspection corridor extending "
-        f"either side of the subject address is illustrated in Figure 3."
-    ))
+    p = doc.add_paragraph()
+    r1 = p.add_run("The inspection focused conditions to the council assets that surround ")
+    set_run(r1, size=12)
+    r2 = p.add_run(PROJECT["address"])
+    set_run(r2, size=12, bold=True)
+    r3 = p.add_run(
+        ". The locality of the site is shown in Figure 1 below. The 50m inspection corridor "
+        "extending either side of the subject address is illustrated in Figure 3."
+    )
+    set_run(r3, size=12)
     doc.add_paragraph()
 
     # Figure 1 - Locality Plan
