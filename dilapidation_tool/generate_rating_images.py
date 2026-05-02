@@ -263,6 +263,12 @@ def generate_rating_table(path: str):
 
 
 def ensure_rating_images(base_dir: Path):
-    """Always (re)generate the council assets pavement rating images."""
-    generate_rating_graph(str(base_dir / "pavement_rating_graph.png"))
-    generate_rating_table(str(base_dir / "pavement_rating_table.png"))
+    """Generate pavement rating images only if they don't already exist.
+    Place real images as pavement_rating_graph.png / pavement_rating_table.png
+    in the dilapidation_tool/ folder to use them instead of the generated versions."""
+    graph_path = base_dir / "pavement_rating_graph.png"
+    table_path = base_dir / "pavement_rating_table.png"
+    if not graph_path.exists():
+        generate_rating_graph(str(graph_path))
+    if not table_path.exists():
+        generate_rating_table(str(table_path))
