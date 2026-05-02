@@ -137,9 +137,8 @@ def add_cover_page(doc, cover_photo: str = None):
 
     doc.add_paragraph()
 
-    # Prepared By / Date / Ref block
+    # Date / Ref block (cover page bottom)
     for label, value in [
-        ("Prepared By:", PROJECT["inspector_name"]),
         ("Date:", PROJECT["report_date"]),
         ("Ref:", PROJECT["ref"]),
     ]:

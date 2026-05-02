@@ -82,7 +82,6 @@ def add_cover_page(doc, cover_photo: str = None):
 
     # Metadata block (bottom of cover)
     for label, value in [
-        ("Prepared By:", PROJECT["inspector_name"]),
         ("Date:", PROJECT["report_date"]),
         ("Ref:", PROJECT["ref"]),
     ]:
