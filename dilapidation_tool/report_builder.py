@@ -152,16 +152,42 @@ def add_report_metadata(doc):
     ])
 
 
-def add_contents(doc):
-    # "CONTENTS" heading — bold + underlined to match template
+def _toc_entry_para(doc, text, page_str):
+    """Create a pre-populated TOC entry paragraph with dot leader tab."""
     p = doc.add_paragraph()
-    run = p.add_run("CONTENTS")
+    pPr = p._p.get_or_add_pPr()
+
+    # Dot-leader tab stop at right text margin (~9000 twips ≈ A4 text width)
+    tabs = OxmlElement("w:tabs")
+    tab = OxmlElement("w:tab")
+    tab.set(qn("w:val"), "right")
+    tab.set(qn("w:leader"), "dot")
+    tab.set(qn("w:pos"), "9000")
+    tabs.append(tab)
+    pPr.append(tabs)
+
+    # Space before each entry (~240 twips = 12pt) for the gap shown in template
+    spacing = OxmlElement("w:spacing")
+    spacing.set(qn("w:before"), "240")
+    spacing.set(qn("w:after"), "0")
+    pPr.append(spacing)
+
+    run = p.add_run(f"{text}\t{page_str}")
+    set_run(run, size=12, italic=True)
+    return p
+
+
+def add_contents(doc):
+    # "TABLE OF CONTENTS" heading — centred, bold, underlined
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("TABLE OF CONTENTS")
     set_run(run, size=12, bold=True, underline=True)
 
     doc.add_paragraph()
 
     # ── Proper updatable Word TOC field ──────────────────────────
-    # fldChar begin + instrText + fldChar separate in first paragraph
+    # fldChar begin + instrText + fldChar separate — all in one paragraph
     p_toc = doc.add_paragraph()
     r1 = OxmlElement("w:r")
     fc_begin = OxmlElement("w:fldChar")
@@ -183,23 +209,17 @@ def add_contents(doc):
     r3.append(fc_sep)
     p_toc._p.append(r3)
 
-    # Pre-populated entries (visible before user updates the field)
-    entries = [
-        "1.0 PREAMBLE",
-        "2.0 INTRODUCTION",
-        "3.0 EXISTING CONDITIONS",
-        "4.0 CONCLUSION",
+    # Pre-populated entries (italic, dot leader, page number)
+    toc_entries = [
+        ("1.0 PREAMBLE",           "3"),
+        ("2.0 INTRODUCTION",       "3"),
+        ("3.0 EXISTING CONDITIONS","6"),
+        ("4.0 CONCLUSION",         "66"),
     ]
-    for entry in entries:
-        p_entry = doc.add_paragraph()
-        try:
-            p_entry.style = doc.styles["TOC 1"]
-        except KeyError:
-            pass
-        run = p_entry.add_run(entry)
-        set_run(run, size=12, italic=True)
+    for text, page in toc_entries:
+        _toc_entry_para(doc, text, page)
 
-    # fldChar end appended to the last entry paragraph
+    # fldChar end on the last entry paragraph
     r4 = OxmlElement("w:r")
     fc_end = OxmlElement("w:fldChar")
     fc_end.set(qn("w:fldCharType"), "end")

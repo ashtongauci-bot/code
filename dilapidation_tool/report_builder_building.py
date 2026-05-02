@@ -162,22 +162,76 @@ def add_cover_page(doc, cover_photo: str = None):
     doc.add_page_break()
 
 
-def add_contents(doc):
+def _toc_entry_para(doc, text, page_str):
+    """Create a pre-populated TOC entry paragraph with dot leader tab."""
     p = doc.add_paragraph()
-    run = p.add_run("CONTENTS")
-    set_run(run, size=12, bold=True)
+    pPr = p._p.get_or_add_pPr()
 
-    for entry in [
-        "1.0 PREAMBLE",
-        "2.0 INTRODUCTION",
-        "3.0 EXISTING CONDITIONS",
-        "4.0 CONCLUSION",
-        "APPENDIX A – EXTERNAL FACADES",
-        "APPENDIX B – INTERNAL AREAS",
-    ]:
-        p = doc.add_paragraph()
-        run = p.add_run(entry)
-        set_run(run, size=12, italic=True)
+    tabs = OxmlElement("w:tabs")
+    tab = OxmlElement("w:tab")
+    tab.set(qn("w:val"), "right")
+    tab.set(qn("w:leader"), "dot")
+    tab.set(qn("w:pos"), "9000")
+    tabs.append(tab)
+    pPr.append(tabs)
+
+    spacing = OxmlElement("w:spacing")
+    spacing.set(qn("w:before"), "240")
+    spacing.set(qn("w:after"), "0")
+    pPr.append(spacing)
+
+    run = p.add_run(f"{text}\t{page_str}")
+    set_run(run, size=12, italic=True)
+    return p
+
+
+def add_contents(doc):
+    # "TABLE OF CONTENTS" heading — centred, bold, underlined
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("TABLE OF CONTENTS")
+    set_run(run, size=12, bold=True, underline=True)
+
+    doc.add_paragraph()
+
+    # Updatable Word TOC field
+    p_toc = doc.add_paragraph()
+    r1 = OxmlElement("w:r")
+    fc_begin = OxmlElement("w:fldChar")
+    fc_begin.set(qn("w:fldCharType"), "begin")
+    fc_begin.set(qn("w:dirty"), "true")
+    r1.append(fc_begin)
+    p_toc._p.append(r1)
+
+    r2 = OxmlElement("w:r")
+    instr = OxmlElement("w:instrText")
+    instr.set(qn("xml:space"), "preserve")
+    instr.text = ' TOC \\o "1-1" \\h \\z \\u '
+    r2.append(instr)
+    p_toc._p.append(r2)
+
+    r3 = OxmlElement("w:r")
+    fc_sep = OxmlElement("w:fldChar")
+    fc_sep.set(qn("w:fldCharType"), "separate")
+    r3.append(fc_sep)
+    p_toc._p.append(r3)
+
+    toc_entries = [
+        ("1.0 PREAMBLE",                "3"),
+        ("2.0 INTRODUCTION",            "3"),
+        ("3.0 EXISTING CONDITIONS",     "6"),
+        ("4.0 CONCLUSION",              "66"),
+        ("APPENDIX A – EXTERNAL FACADES", ""),
+        ("APPENDIX B – INTERNAL AREAS",   ""),
+    ]
+    for text, page in toc_entries:
+        _toc_entry_para(doc, text, page)
+
+    r4 = OxmlElement("w:r")
+    fc_end = OxmlElement("w:fldChar")
+    fc_end.set(qn("w:fldCharType"), "end")
+    r4.append(fc_end)
+    doc.paragraphs[-1]._p.append(r4)
 
     doc.add_page_break()
 
