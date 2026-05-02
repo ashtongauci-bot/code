@@ -78,6 +78,17 @@ def scan_photos_dir(photos_dir: Path) -> list[dict]:
     return sections
 
 
+def _evenly_spaced(photos: list, n: int) -> list:
+    """Select n photos spread evenly across the full list by skipping at regular intervals."""
+    total = len(photos)
+    if n >= total:
+        return photos
+    if n == 1:
+        return [photos[total // 2]]
+    indices = sorted({round(i * (total - 1) / (n - 1)) for i in range(n)})
+    return [photos[i] for i in indices]
+
+
 def process_sections(sections, cached):
     """Process all sections, return all_photos list."""
     cached_files = {p["filename"] for p in cached}
@@ -99,11 +110,11 @@ def process_sections(sections, cached):
         if not all_in_folder:
             continue
 
-        # Apply cap before analysis so uncapped photos are never sent to the API
+        # Apply cap before analysis, spreading selection evenly across all photos
         if max_per_section and max_per_section > 0 and len(all_in_folder) > max_per_section:
-            photos_in_section = all_in_folder[:max_per_section]
+            photos_in_section = _evenly_spaced(all_in_folder, max_per_section)
             print(f"\n[{section_label}] - {len(all_in_folder)} photos "
-                  f"(capped to {max_per_section})")
+                  f"(evenly spread to {max_per_section})")
         else:
             photos_in_section = all_in_folder
             print(f"\n[{section_label}] - {len(photos_in_section)} photos")
