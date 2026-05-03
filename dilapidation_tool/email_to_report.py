@@ -124,24 +124,24 @@ def extract_fields(email_text: str) -> dict:
         api_key = _ask("Anthropic API key not found in config.py — enter it now", required=True)
 
     print("\nExtracting details with Claude...")
-    client = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        messages=[{
-            "role": "user",
-            "content": EXTRACT_PROMPT + email_text
-                       + "\n\nRespond with ONLY the JSON object, no markdown or explanation.",
-        }],
-    )
-    raw = msg.content[0].text.strip()
-    # Strip any accidental code fences
-    raw = re.sub(r"^```[a-z]*\n?", "", raw)
-    raw = re.sub(r"\n?```$", "", raw)
     try:
+        client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
+        msg = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            messages=[{
+                "role": "user",
+                "content": EXTRACT_PROMPT + email_text
+                           + "\n\nRespond with ONLY the JSON object, no markdown or explanation.",
+            }],
+        )
+        raw = msg.content[0].text.strip()
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw)
         return json.loads(raw)
-    except json.JSONDecodeError as e:
-        print(f"  Warning: Could not parse Claude response ({e}). Entering manually.")
+    except Exception as e:
+        print(f"  Claude extraction failed ({e})")
+        print("  You'll be asked to enter the details manually instead.")
         return {}
 
 
