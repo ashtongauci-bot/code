@@ -119,8 +119,12 @@ def extract_fields(email_text: str) -> dict:
         print("  (anthropic package not installed – skipping AI extraction)")
         return {}
 
+    api_key = getattr(cfg, "ANTHROPIC_API_KEY", "")
+    if not api_key:
+        api_key = _ask("Anthropic API key not found in config.py — enter it now", required=True)
+
     print("\nExtracting details with Claude...")
-    client = anthropic.Anthropic(api_key=cfg.ANTHROPIC_API_KEY)
+    client = anthropic.Anthropic(api_key=api_key)
     msg = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=1024,
@@ -255,9 +259,11 @@ def write_config(fields: dict):
         + "]"
     )
 
-    photo_workers = getattr(cfg, "PHOTO_WORKERS", 5)
-    max_photos    = getattr(cfg, "MAX_PHOTOS_PER_SECTION", 0)
-    max_line      = f"\nMAX_PHOTOS_PER_SECTION = {max_photos}\n" if max_photos else ""
+    photo_workers    = getattr(cfg, "PHOTO_WORKERS", 5)
+    max_photos       = getattr(cfg, "MAX_PHOTOS_PER_SECTION", 0)
+    max_line         = f"\nMAX_PHOTOS_PER_SECTION = {max_photos}\n" if max_photos else ""
+    anthropic_key    = getattr(cfg, "ANTHROPIC_API_KEY", "")
+    google_maps_key  = getattr(cfg, "GOOGLE_MAPS_API_KEY", "")
 
     content = f'''\
 # config.py - Edit these details before running
@@ -269,10 +275,10 @@ REPORT_TYPE = "{report_type}"
 {project_block}
 
 # Your Anthropic API key
-ANTHROPIC_API_KEY = {repr(cfg.ANTHROPIC_API_KEY)}
+ANTHROPIC_API_KEY = {repr(anthropic_key)}
 
 # Your Google Maps API key (needs Maps Static API + Geocoding API enabled)
-GOOGLE_MAPS_API_KEY = {repr(cfg.GOOGLE_MAPS_API_KEY)}
+GOOGLE_MAPS_API_KEY = {repr(google_maps_key)}
 
 # Number of photos to analyze simultaneously (higher = faster but more API load)
 # Recommended: 5-10. Max: 20
