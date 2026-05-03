@@ -225,15 +225,33 @@ def write_config(fields: dict):
         project_block += f'    "{k}": {fmt_val(v)},\n'
     project_block += "}"
 
+    default_photo_sections = [
+        ("northern_end", "NORTHERN END"),
+        ("eastern_side", "EASTERN SIDE"),
+        ("southern_end", "SOUTHERN END"),
+        ("western_side", "WESTERN SIDE"),
+    ]
+    default_building_sections = [
+        ("appendix_a/east_facade",  "APPENDIX A- EXTERNAL FACADES", "EAST FAÇADE – FRONT OF PROPERTY"),
+        ("appendix_a/north_facade", "APPENDIX A- EXTERNAL FACADES", "NORTH FAÇADE – SIDE OF PROPERTY"),
+        ("appendix_a/west_facade",  "APPENDIX A- EXTERNAL FACADES", "WEST FAÇADE – BACK OF HOME"),
+        ("appendix_a/south_facade", "APPENDIX A- EXTERNAL FACADES", "SOUTH FAÇADE – SIDE OF PROPERTY"),
+        ("appendix_b/ground_floor", "APPENDIX B- INTERNAL AREAS",  "GROUND FLOOR"),
+        ("appendix_b/first_floor",  "APPENDIX B- INTERNAL AREAS",  "FIRST FLOOR"),
+    ]
+
+    photo_sections    = getattr(cfg, "PHOTO_SECTIONS",    default_photo_sections)
+    building_sections = getattr(cfg, "BUILDING_SECTIONS", default_building_sections)
+
     photo_sections_block = (
         "PHOTO_SECTIONS = [\n"
-        + "".join(f'    {repr(s)},\n' for s in cfg.PHOTO_SECTIONS)
+        + "".join(f'    {repr(s)},\n' for s in photo_sections)
         + "]"
     )
 
     building_sections_block = (
         "BUILDING_SECTIONS = [\n"
-        + "".join(f'    {repr(s)},\n' for s in cfg.BUILDING_SECTIONS)
+        + "".join(f'    {repr(s)},\n' for s in building_sections)
         + "]"
     )
 
