@@ -138,7 +138,8 @@ def extract_fields(email_text: str) -> dict:
         raw = msg.content[0].text.strip()
         raw = re.sub(r"^```[a-z]*\n?", "", raw)
         raw = re.sub(r"\n?```$", "", raw)
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
     except Exception as e:
         print(f"  Claude extraction failed ({e})")
         print("  You'll be asked to enter the details manually instead.")
