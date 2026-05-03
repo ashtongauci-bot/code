@@ -289,7 +289,7 @@ PHOTO_WORKERS = {photo_workers}
 '''
 
     config_path = TOOL_DIR / "config.py"
-    config_path.write_text(content)
+    config_path.write_text(content, encoding="utf-8")
     print(f"\nconfig.py updated.")
 
 
