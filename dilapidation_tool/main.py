@@ -162,6 +162,9 @@ def main():
     print("=" * 60)
     print(f"Project: {PROJECT['address']}")
     print(f"Client:  {PROJECT['client']}")
+    max_per = getattr(config, "MAX_PHOTOS_PER_SECTION", 0)
+    if max_per and max_per > 0:
+        print(f"Photo limit: {max_per} per folder (evenly spread)")
     print()
 
     # Auto-scan photos folder
