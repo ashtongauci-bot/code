@@ -205,10 +205,19 @@ def fill_missing(fields: dict) -> dict:
 # ── Config writer ─────────────────────────────────────────────────────────────
 
 def write_config(fields: dict):
-    """Overwrite config.py with updated values, preserving API keys and settings."""
-    p = dict(cfg.PROJECT)
+    """Update only REPORT_TYPE and PROJECT in config.py — everything else is untouched."""
+    config_path = TOOL_DIR / "config.py"
 
-    # Apply extracted / user-supplied values
+    # Read existing file so API keys, PHOTO_WORKERS etc. are fully preserved
+    try:
+        text = config_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        text = ""
+
+    report_type = fields["report_type"]
+
+    # Build updated PROJECT dict from current in-memory config + new fields
+    p = dict(cfg.PROJECT) if hasattr(cfg, "PROJECT") else {}
     for key in [
         "address", "client", "inspection_date", "report_date", "ref",
         "total_photos", "photo_link", "streets_inspected", "development_address",
@@ -216,87 +225,28 @@ def write_config(fields: dict):
         if fields.get(key) is not None:
             p[key] = fields[key]
 
-    # Keep inspector / reviewer / company from existing config unchanged
-    report_type = fields["report_type"]
-
     def fmt_val(v):
-        if isinstance(v, int):
-            return str(v)
-        return repr(v)
+        return str(v) if isinstance(v, int) else repr(v)
 
-    project_block = "PROJECT = {\n"
+    project_str = "PROJECT = {\n"
     for k, v in p.items():
-        project_block += f'    "{k}": {fmt_val(v)},\n'
-    project_block += "}"
+        project_str += f'    "{k}": {fmt_val(v)},\n'
+    project_str += "}"
 
-    default_photo_sections = [
-        ("northern_end", "NORTHERN END"),
-        ("eastern_side", "EASTERN SIDE"),
-        ("southern_end", "SOUTHERN END"),
-        ("western_side", "WESTERN SIDE"),
-    ]
-    default_building_sections = [
-        ("appendix_a/east_facade",  "APPENDIX A- EXTERNAL FACADES", "EAST FAÇADE – FRONT OF PROPERTY"),
-        ("appendix_a/north_facade", "APPENDIX A- EXTERNAL FACADES", "NORTH FAÇADE – SIDE OF PROPERTY"),
-        ("appendix_a/west_facade",  "APPENDIX A- EXTERNAL FACADES", "WEST FAÇADE – BACK OF HOME"),
-        ("appendix_a/south_facade", "APPENDIX A- EXTERNAL FACADES", "SOUTH FAÇADE – SIDE OF PROPERTY"),
-        ("appendix_b/ground_floor", "APPENDIX B- INTERNAL AREAS",  "GROUND FLOOR"),
-        ("appendix_b/first_floor",  "APPENDIX B- INTERNAL AREAS",  "FIRST FLOOR"),
-    ]
+    # ── Patch REPORT_TYPE line ────────────────────────────────────────────────
+    if re.search(r'REPORT_TYPE\s*=', text):
+        text = re.sub(r'REPORT_TYPE\s*=\s*"[^"]*"', f'REPORT_TYPE = "{report_type}"', text)
+    else:
+        text = f'REPORT_TYPE = "{report_type}"\n\n' + text
 
-    photo_sections    = getattr(cfg, "PHOTO_SECTIONS",    default_photo_sections)
-    building_sections = getattr(cfg, "BUILDING_SECTIONS", default_building_sections)
+    # ── Patch PROJECT block ───────────────────────────────────────────────────
+    if re.search(r'PROJECT\s*=\s*\{', text):
+        text = re.sub(r'PROJECT\s*=\s*\{[^}]*\}', project_str, text, flags=re.DOTALL)
+    else:
+        text += f'\n{project_str}\n'
 
-    photo_sections_block = (
-        "PHOTO_SECTIONS = [\n"
-        + "".join(f'    {repr(s)},\n' for s in photo_sections)
-        + "]"
-    )
-
-    building_sections_block = (
-        "BUILDING_SECTIONS = [\n"
-        + "".join(f'    {repr(s)},\n' for s in building_sections)
-        + "]"
-    )
-
-    photo_workers    = getattr(cfg, "PHOTO_WORKERS", 5)
-    max_photos       = getattr(cfg, "MAX_PHOTOS_PER_SECTION", 0)
-    max_line         = f"\nMAX_PHOTOS_PER_SECTION = {max_photos}\n" if max_photos else ""
-    anthropic_key    = getattr(cfg, "ANTHROPIC_API_KEY", "")
-    google_maps_key  = getattr(cfg, "GOOGLE_MAPS_API_KEY", "")
-
-    content = f'''\
-# config.py - Edit these details before running
-
-# ─── REPORT TYPE ───────────────────────────────────────────────
-# Options: "council_assets" or "building"
-REPORT_TYPE = "{report_type}"
-
-{project_block}
-
-# Your Anthropic API key
-ANTHROPIC_API_KEY = {repr(anthropic_key)}
-
-# Your Google Maps API key (needs Maps Static API + Geocoding API enabled)
-GOOGLE_MAPS_API_KEY = {repr(google_maps_key)}
-
-# Number of photos to analyze simultaneously (higher = faster but more API load)
-# Recommended: 5-10. Max: 20
-PHOTO_WORKERS = {photo_workers}
-{max_line}
-# ─── COUNCIL ASSETS PHOTO SECTIONS ─────────────────────────────
-# Used when REPORT_TYPE = "council_assets"
-{photo_sections_block}
-
-# ─── BUILDING PHOTO SECTIONS ────────────────────────────────────
-# Used when REPORT_TYPE = "building"
-# Each entry: (folder_name, appendix_label, facade_label)
-{building_sections_block}
-'''
-
-    config_path = TOOL_DIR / "config.py"
-    config_path.write_text(content, encoding="utf-8")
-    print(f"\nconfig.py updated.")
+    config_path.write_text(text, encoding="utf-8")
+    print("\nconfig.py updated (API keys and settings preserved).")
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
