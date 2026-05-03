@@ -46,7 +46,7 @@ CONDITIONAL_FIELDS = {
 EXTRACT_PROMPT = """\
 Extract project details from this client email for a pre-construction dilapidation report.
 
-Return ONLY a JSON object with these fields (use null for anything not mentioned):
+Return ONLY a single flat JSON object (not an array, not a list) with these fields (use null for anything not mentioned):
 {
   "report_type": "council_assets" or "building"
                (council_assets = roads/footpaths/council assets; building = property/building),
