@@ -26,7 +26,7 @@ def set_run(run, size=None, bold=None, italic=None, underline=None, font_name=TN
         run.underline = underline
 
 
-def _setup_document(doc):
+def _setup_document(doc, footer_distance=284):
     """A4 page size, spec margins, en-AU language — applied to fresh documents only."""
     for section in doc.sections:
         section.page_width = Twips(11906)
@@ -36,7 +36,7 @@ def _setup_document(doc):
         section.left_margin = Twips(851)
         section.right_margin = Twips(851)
         section.header_distance = Twips(567)
-        section.footer_distance = Twips(284)
+        section.footer_distance = Twips(footer_distance)
     try:
         rPr = doc.styles["Normal"].element.get_or_add_rPr()
         lang = OxmlElement("w:lang")
@@ -47,16 +47,26 @@ def _setup_document(doc):
 
 
 def _add_page_number_footer(doc):
-    """Add centred [ N ] page-number footer to every section."""
+    """Add [ N ] footer using tab stops (centre at 5102 DXA) to every section."""
     for section in doc.sections:
         footer = section.footer
         footer.is_linked_to_previous = False
         fp = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
         for r in list(fp._p.findall(qn("w:r"))):
             fp._p.remove(r)
-        fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        fp.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
-        def _append_run(tag, text=None, fld_type=None):
+        # Tab stops: centre at 5102 DXA, left at 6300 DXA
+        pPr = fp._p.get_or_add_pPr()
+        tabs = OxmlElement("w:tabs")
+        for val, pos in [("center", "5102"), ("left", "6300")]:
+            tab = OxmlElement("w:tab")
+            tab.set(qn("w:val"), val)
+            tab.set(qn("w:pos"), pos)
+            tabs.append(tab)
+        pPr.append(tabs)
+
+        def _r(tag, text=None, fld_type=None):
             r = OxmlElement("w:r")
             if tag == "w:fldChar":
                 el = OxmlElement("w:fldChar")
@@ -73,20 +83,44 @@ def _add_page_number_footer(doc):
             r.append(el)
             fp._p.append(r)
 
-        _append_run("w:t", text="[ ")
-        _append_run("w:fldChar", fld_type="begin")
-        _append_run("w:instrText", text=" PAGE ")
-        _append_run("w:fldChar", fld_type="separate")
-        _append_run("w:t", text="1")
-        _append_run("w:fldChar", fld_type="end")
-        _append_run("w:t", text=" ]")
+        # Tab to centre, then [ PAGE ]
+        _r("w:t", text="\t[ ")
+        _r("w:fldChar", fld_type="begin")
+        _r("w:instrText", text=" PAGE ")
+        _r("w:fldChar", fld_type="separate")
+        _r("w:t", text="1")
+        _r("w:fldChar", fld_type="end")
+        _r("w:t", text=" ]")
+
+
+def _add_company_header(doc):
+    """Left-aligned multi-line company address block in TNR, in the page header."""
+    lines = [l for l in [
+        PROJECT.get("company", ""),
+        PROJECT.get("company_abn", ""),
+        PROJECT.get("company_street", ""),
+        PROJECT.get("company_suburb", ""),
+    ] if l]
+
+    for section in doc.sections:
+        header = section.header
+        header.is_linked_to_previous = False
+        for i, line in enumerate(lines):
+            if i < len(header.paragraphs):
+                p = header.paragraphs[i]
+                for r in list(p._p.findall(qn("w:r"))):
+                    p._p.remove(r)
+            else:
+                p = header.add_paragraph()
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            set_run(p.add_run(line), size=12)
+        header.add_paragraph()  # blank line at end
 
 
 def add_cover_page(doc, cover_photo: str = None):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("PRE-CONSTRUCTION DILAPIDATION REPORT")
-    set_run(run, size=18, bold=True, underline=True)
+    set_run(p.add_run("PRE-CONSTRUCTION DILAPIDATION REPORT"), size=18, bold=True, underline=True)
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -108,7 +142,7 @@ def add_cover_page(doc, cover_photo: str = None):
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    set_run(p.add_run(f"Prepared For: {PROJECT['client']}"), size=12, bold=True)
+    set_run(p.add_run(f"Prepared For: {PROJECT['client']}"), size=12, bold=True, font_name=APTOS)
 
     doc.add_paragraph()
 
@@ -135,7 +169,7 @@ def _short_address(full: str) -> str:
 
 
 def _make_borderless_table(doc, num_rows, num_cols, col_widths_dxa):
-    """Create a borderless table with explicit column and table widths."""
+    """Borderless table with explicit column and total widths in DXA."""
     table = doc.add_table(rows=num_rows, cols=num_cols)
     table.style = "Normal Table"
     total_width = sum(col_widths_dxa)
@@ -176,7 +210,7 @@ def _set_cell_width(cell, width_dxa):
 
 
 def _caption_para(cell, photo_number: int, description: str):
-    """Caption paragraph: TNR 9pt bold label + plain description, #0E2841, centred."""
+    """Council caption: TNR 9pt bold label + bold-italic description, #0E2841, centred."""
     cap = cell.add_paragraph()
     cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
     pPr = cap._p.get_or_add_pPr()
@@ -192,13 +226,13 @@ def _caption_para(cell, photo_number: int, description: str):
     r1.font.color.rgb = colour
 
     r2 = cap.add_run(f" {description}")
-    set_run(r2, size=9, bold=False)
+    set_run(r2, size=9, bold=True, italic=True)
     r2.font.color.rgb = colour
 
 
 def add_metadata_block(doc, rows: list[tuple[str, str]]):
-    """Borderless 2-column table for report metadata."""
-    label_w, value_w = 2304, 7624
+    """Borderless 2-column summary table: 2304 DXA label + 8044 DXA value."""
+    label_w, value_w = 2304, 8044
     table = _make_borderless_table(doc, len(rows), 2, [label_w, value_w])
 
     for i, (label, value) in enumerate(rows):
@@ -282,7 +316,7 @@ def add_contents(doc):
 
 
 def add_section_heading(doc, text):
-    """Heading 1 — TNR bold black, spacing before 360 after 80."""
+    """Heading 1 — TNR bold underlined black, spacing before 360 after 80."""
     p = doc.add_paragraph(style="Heading 1")
     pPr = p._p.get_or_add_pPr()
     spacing = OxmlElement("w:spacing")
@@ -290,7 +324,7 @@ def add_section_heading(doc, text):
     spacing.set(qn("w:after"), "80")
     pPr.append(spacing)
     run = p.add_run(text)
-    set_run(run, bold=True)
+    set_run(run, bold=True, underline=True)
     run.font.color.rgb = RGBColor(0, 0, 0)
     return p
 
@@ -448,21 +482,43 @@ def add_existing_conditions_intro(doc):
 
 
 def add_photo_table_entry(doc, photo: dict):
-    """Each photo in a 2-row single-column table: image row + caption row."""
+    """Single-row single-column table: image and caption paragraph in the same cell."""
     photo_path = Path(photo["path"])
-    content_width = 10204  # 11906 - 2×851 DXA
+    cell_width = 6811  # DXA (~4.73 inches)
 
-    table = _make_borderless_table(doc, 2, 1, [content_width])
+    table = doc.add_table(rows=1, cols=1)
+    table.style = "Normal Table"
+
+    tbl = table._tbl
+    tblPr = tbl.find(qn("w:tblPr"))
+    if tblPr is None:
+        tblPr = OxmlElement("w:tblPr")
+        tbl.insert(0, tblPr)
+
+    # Auto table width
+    tblW = OxmlElement("w:tblW")
+    tblW.set(qn("w:w"), "0")
+    tblW.set(qn("w:type"), "auto")
+    tblPr.append(tblW)
 
     # Centre table on page
-    tblPr = table._tbl.find(qn("w:tblPr"))
     jc = OxmlElement("w:jc")
     jc.set(qn("w:val"), "center")
     tblPr.append(jc)
 
-    img_cell = table.cell(0, 0)
-    _set_cell_width(img_cell, content_width)
-    img_para = img_cell.paragraphs[0]
+    # No borders
+    tblBorders = OxmlElement("w:tblBorders")
+    for side in ["top", "left", "bottom", "right", "insideH", "insideV"]:
+        el = OxmlElement(f"w:{side}")
+        el.set(qn("w:val"), "none")
+        tblBorders.append(el)
+    tblPr.append(tblBorders)
+
+    cell = table.cell(0, 0)
+    _set_cell_width(cell, cell_width)
+
+    # Image paragraph
+    img_para = cell.paragraphs[0]
     img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = img_para.add_run()
     if photo_path.exists():
@@ -473,9 +529,8 @@ def add_photo_table_entry(doc, photo: dict):
     else:
         img_para.add_run(f"[Photo not found: {photo_path.name}]")
 
-    cap_cell = table.cell(1, 0)
-    _set_cell_width(cap_cell, content_width)
-    _caption_para(cap_cell, photo["number"], photo["description"])
+    # Caption in the same cell (not a separate row)
+    _caption_para(cell, photo["number"], photo["description"])
 
     doc.add_paragraph()
 
@@ -489,7 +544,7 @@ def add_direction_heading(doc, section_name: str):
 
 
 def _add_signature_table(doc):
-    """Sign-off block using tab stops (not a table)."""
+    """Sign-off block using tab stops."""
     base = Path(__file__).parent
     inspector_sig = base / "inspector_signature.png"
     reviewer_sig = base / "reviewer_signature.png"
@@ -586,8 +641,9 @@ def build_report(all_photos: list[dict], output_path: str, template_path: str = 
         print(f"Using template: {Path(template_path).name}")
     else:
         doc = Document()
-        _setup_document(doc)
+        _setup_document(doc, footer_distance=144)
 
+    _add_company_header(doc)
     _add_page_number_footer(doc)
 
     add_cover_page(doc, cover_photo=map_paths.get("cover") if map_paths else None)

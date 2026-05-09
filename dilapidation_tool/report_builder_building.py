@@ -10,9 +10,28 @@ from config import PROJECT
 from report_builder import (
     TNR, APTOS, set_run,
     _short_address, _setup_document, _add_page_number_footer,
-    _make_borderless_table, _set_cell_width, _caption_para,
+    _make_borderless_table, _set_cell_width,
     _add_signature_table,
 )
+
+
+def _caption_para(cell, photo_number: int, description: str):
+    """Building caption: TNR 9pt bold label + plain description, #0E2841, centred."""
+    cap = cell.add_paragraph()
+    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pPr = cap._p.get_or_add_pPr()
+    spacing = OxmlElement("w:spacing")
+    spacing.set(qn("w:after"), "200")
+    spacing.set(qn("w:line"), "240")
+    spacing.set(qn("w:lineRule"), "auto")
+    pPr.append(spacing)
+    colour = RGBColor(0x0E, 0x28, 0x41)
+    r1 = cap.add_run(f"Photograph {photo_number}:")
+    set_run(r1, size=9, bold=True)
+    r1.font.color.rgb = colour
+    r2 = cap.add_run(f" {description}")
+    set_run(r2, size=9, bold=False)
+    r2.font.color.rgb = colour
 
 
 def add_body(doc, text, size=12, bold=None, italic=None, align=WD_ALIGN_PARAGRAPH.JUSTIFY):
