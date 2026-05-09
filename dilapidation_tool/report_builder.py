@@ -643,7 +643,6 @@ def build_report(all_photos: list[dict], output_path: str, template_path: str = 
         doc = Document()
         _setup_document(doc, footer_distance=144)
 
-    _add_company_header(doc)
     _add_page_number_footer(doc)
 
     add_cover_page(doc, cover_photo=map_paths.get("cover") if map_paths else None)

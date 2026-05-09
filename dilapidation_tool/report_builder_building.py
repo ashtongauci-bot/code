@@ -15,8 +15,9 @@ from report_builder import (
 )
 
 
-def _caption_para(cell, photo_number: int, description: str):
-    """Building caption: TNR 9pt bold label + plain description, #0E2841, centred."""
+def _caption_para(cell, photo_number: int, description: str, category: str = ""):
+    """Building caption: TNR 9pt bold label + plain description, #0E2841, centred.
+    Category is appended only if not already present in the description."""
     cap = cell.add_paragraph()
     cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
     pPr = cap._p.get_or_add_pPr()
@@ -29,7 +30,10 @@ def _caption_para(cell, photo_number: int, description: str):
     r1 = cap.add_run(f"Photograph {photo_number}:")
     set_run(r1, size=9, bold=True)
     r1.font.color.rgb = colour
-    r2 = cap.add_run(f" {description}")
+    display = description
+    if category and category not in description:
+        display = f"{description} {category}"
+    r2 = cap.add_run(f" {display}")
     set_run(r2, size=9, bold=False)
     r2.font.color.rgb = colour
 
@@ -396,7 +400,7 @@ def add_photo_section_table(doc, photos: list[dict]):
 
         cap_cell = table.cell(1, 0)
         _set_cell_width(cap_cell, content_width)
-        _caption_para(cap_cell, photo["number"], photo["description"])
+        _caption_para(cap_cell, photo["number"], photo["description"], photo.get("category", ""))
 
         doc.add_paragraph()
 
