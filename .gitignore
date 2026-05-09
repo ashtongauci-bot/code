@@ -1,0 +1,5 @@
+watcher_credentials.json
+watcher_seen.json
+watcher.log
+__pycache__/
+*.pyc
