@@ -123,12 +123,6 @@ def find_symbol(doc, category_bic, preferred_keywords=None):
     return symbols[0]
 
 
-def activate(doc, sym):
-    if sym and not sym.IsActive:
-        sym.Activate()
-        doc.Regenerate()
-
-
 def nearest_level(doc, elevation_m):
     """Return the Revit Level closest to the given elevation (metres)."""
     elevation_ft = elevation_m * 3.28084
@@ -141,6 +135,40 @@ def nearest_level(doc, elevation_m):
 def col_positions(columns):
     """Return dict: col_id -> (x_m, y_m) for beam endpoint lookups."""
     return {{col_id: (x_m, y_m) for col_id, x_m, y_m, _w, _d in columns}}
+
+
+def get_or_create_type(doc, base_sym, width_mm, depth_mm):
+    """
+    Find or create a family type with the given section dimensions.
+    Searches the loaded family first; if not found, duplicates base_sym
+    and sets the width/depth parameters on the new type.
+    Returns the matching FamilySymbol (already activated).
+    """
+    type_name = f"{{width_mm}} x {{depth_mm}}mm"
+    family = base_sym.Family
+    # Search existing types in this family
+    for type_id in family.GetFamilySymbolIds():
+        sym = doc.GetElement(type_id)
+        if sym.Name == type_name:
+            if not sym.IsActive:
+                sym.Activate()
+                doc.Regenerate()
+            return sym
+    # Not found — duplicate base type and set dimensions
+    new_sym = base_sym.Duplicate(type_name)
+    param_pairs = [("b", width_mm), ("h", depth_mm),
+                   ("Width", width_mm), ("Depth", depth_mm),
+                   ("b1", width_mm), ("b2", depth_mm)]
+    set_ok = False
+    for pw, pv in param_pairs:
+        p = new_sym.LookupParameter(pw)
+        if p and not p.IsReadOnly:
+            p.Set(pv * MM_TO_FT)
+            set_ok = True
+    if not new_sym.IsActive:
+        new_sym.Activate()
+        doc.Regenerate()
+    return new_sym
 
 
 # ---------------------------------------------------------------------------
@@ -169,11 +197,13 @@ def create_model(doc):
     print(f"Beam family   : {{beam_sym.Family.Name}} / {{beam_sym.Name}}")
     print(f"Floor type    : {{floor_type.Name}}")
 
-    activate(doc, col_sym)
-    activate(doc, beam_sym)
-
     col_pos = col_positions(COLUMNS)
     stats = {{"cols": 0, "beams": 0, "slabs": 0, "errors": []}}
+
+    # Pre-build a cache of (width, depth) -> FamilySymbol for columns and beams
+    # so we create each unique type once, then reuse it
+    col_type_cache  = {{}}
+    beam_type_cache = {{}}
 
     with Transaction(doc, "Sketch-to-Revit: Create Structural Model") as t:
         t.Start()
@@ -186,18 +216,12 @@ def create_model(doc):
                 continue
             for col_id, x_m, y_m, w_mm, d_mm in COLUMNS:
                 try:
+                    key = (w_mm, d_mm)
+                    if key not in col_type_cache:
+                        col_type_cache[key] = get_or_create_type(doc, col_sym, w_mm, d_mm)
+                    sym = col_type_cache[key]
                     loc = m_to_xyz(x_m, y_m, lv_elev_m)
-                    inst = doc.Create.NewFamilyInstance(
-                        loc, col_sym, revit_level, StructuralType.Column
-                    )
-                    # Try to set section size parameters
-                    for pw, pv in [("b", w_mm), ("h", d_mm),
-                                   ("Width", w_mm), ("Depth", d_mm),
-                                   ("b1", w_mm), ("b2", d_mm)]:
-                        p = inst.LookupParameter(pw)
-                        if p and not p.IsReadOnly:
-                            p.Set(pv * MM_TO_FT)
-                            break
+                    doc.Create.NewFamilyInstance(loc, sym, revit_level, StructuralType.Column)
                     stats["cols"] += 1
                 except Exception as ex:
                     stats["errors"].append(f"Column {{col_id}} @ {{lv_name}}: {{ex}}")
@@ -212,22 +236,19 @@ def create_model(doc):
                     stats["errors"].append(f"Beam {{bm_id}}: unknown column id")
                     continue
                 try:
+                    key = (w_mm, d_mm)
+                    if key not in beam_type_cache:
+                        beam_type_cache[key] = get_or_create_type(doc, beam_sym, w_mm, d_mm)
+                    sym = beam_type_cache[key]
                     sx, sy = col_pos[from_id]
                     ex, ey = col_pos[to_id]
                     sp = m_to_xyz(sx, sy, lv_elev_m)
                     ep = m_to_xyz(ex, ey, lv_elev_m)
                     if sp.DistanceTo(ep) < 0.01:
                         continue
-                    curve = Line.CreateBound(sp, ep)
-                    inst = doc.Create.NewFamilyInstance(
-                        curve, beam_sym, revit_level, StructuralType.Beam
+                    doc.Create.NewFamilyInstance(
+                        Line.CreateBound(sp, ep), sym, revit_level, StructuralType.Beam
                     )
-                    for pw, pv in [("b", w_mm), ("h", d_mm),
-                                   ("Width", w_mm), ("Depth", d_mm)]:
-                        p = inst.LookupParameter(pw)
-                        if p and not p.IsReadOnly:
-                            p.Set(pv * MM_TO_FT)
-                            break
                     stats["beams"] += 1
                 except Exception as ex:
                     stats["errors"].append(f"Beam {{bm_id}} @ {{lv_name}}: {{ex}}")
@@ -466,12 +487,6 @@ def find_symbol(doc, category_bic, preferred_keywords=None):
     return symbols[0]
 
 
-def activate(doc, sym):
-    if sym and not sym.IsActive:
-        sym.Activate()
-        doc.Regenerate()
-
-
 def nearest_level(doc, elevation_m):
     elevation_ft = elevation_m * 3.28084
     levels = list(FilteredElementCollector(doc).OfClass(Level).ToElements())
@@ -480,12 +495,33 @@ def nearest_level(doc, elevation_m):
     return min(levels, key=lambda lv: abs(lv.Elevation - elevation_ft))
 
 
-def set_param(inst, pairs_mm):
-    for pw, pv in pairs_mm:
-        p = inst.LookupParameter(pw)
+def get_or_create_type(doc, base_sym, width_mm, depth_mm):
+    """
+    Find or create a family type with the given section dimensions.
+    Searches the loaded family first; if not found, duplicates base_sym
+    and sets the width/depth parameters on the new type.
+    Returns the matching FamilySymbol (already activated).
+    """
+    type_name = f"{{width_mm}} x {{depth_mm}}mm"
+    family = base_sym.Family
+    for type_id in family.GetFamilySymbolIds():
+        sym = doc.GetElement(type_id)
+        if sym.Name == type_name:
+            if not sym.IsActive:
+                sym.Activate()
+                doc.Regenerate()
+            return sym
+    new_sym = base_sym.Duplicate(type_name)
+    for pw, pv in [("b", width_mm), ("h", depth_mm),
+                   ("Width", width_mm), ("Depth", depth_mm),
+                   ("b1", width_mm), ("b2", depth_mm)]:
+        p = new_sym.LookupParameter(pw)
         if p and not p.IsReadOnly:
             p.Set(pv * MM_TO_FT)
-            return
+    if not new_sym.IsActive:
+        new_sym.Activate()
+        doc.Regenerate()
+    return new_sym
 
 
 # ---------------------------------------------------------------------------
@@ -509,10 +545,9 @@ def create_model(doc):
         for m in missing: print(f"  • {{m}}")
         return
 
-    activate(doc, col_sym)
-    activate(doc, beam_sym)
-
     stats = {{"cols": 0, "beams": 0, "slabs": 0, "errors": []}}
+    col_type_cache  = {{}}
+    beam_type_cache = {{}}
 
     with Transaction(doc, "Sketch-to-Revit: Multi-Floor Structural Model") as t:
         t.Start()
@@ -535,12 +570,13 @@ def create_model(doc):
             # Columns
             for col_id, x_m, y_m, w_mm, d_mm in columns:
                 try:
+                    key = (w_mm, d_mm)
+                    if key not in col_type_cache:
+                        col_type_cache[key] = get_or_create_type(doc, col_sym, w_mm, d_mm)
                     loc = m_to_xyz(x_m, y_m, lv_elev_m)
-                    inst = doc.Create.NewFamilyInstance(
-                        loc, col_sym, revit_level, StructuralType.Column
+                    doc.Create.NewFamilyInstance(
+                        loc, col_type_cache[key], revit_level, StructuralType.Column
                     )
-                    set_param(inst, [("b", w_mm), ("h", d_mm),
-                                     ("Width", w_mm), ("Depth", d_mm)])
                     stats["cols"] += 1
                 except Exception as ex:
                     stats["errors"].append(f"Col {{col_id}} @ {{lv_name}}: {{ex}}")
@@ -551,17 +587,18 @@ def create_model(doc):
                     stats["errors"].append(f"Beam {{bm_id}}: unknown col id")
                     continue
                 try:
+                    key = (w_mm, d_mm)
+                    if key not in beam_type_cache:
+                        beam_type_cache[key] = get_or_create_type(doc, beam_sym, w_mm, d_mm)
                     sx, sy = col_pos[from_id]
                     ex, ey = col_pos[to_id]
                     sp = m_to_xyz(sx, sy, lv_elev_m)
                     ep = m_to_xyz(ex, ey, lv_elev_m)
                     if sp.DistanceTo(ep) < 0.01:
                         continue
-                    inst = doc.Create.NewFamilyInstance(
-                        Line.CreateBound(sp, ep), beam_sym, revit_level, StructuralType.Beam
+                    doc.Create.NewFamilyInstance(
+                        Line.CreateBound(sp, ep), beam_type_cache[key], revit_level, StructuralType.Beam
                     )
-                    set_param(inst, [("b", w_mm), ("h", d_mm),
-                                     ("Width", w_mm), ("Depth", d_mm)])
                     stats["beams"] += 1
                 except Exception as ex:
                     stats["errors"].append(f"Beam {{bm_id}} @ {{lv_name}}: {{ex}}")
