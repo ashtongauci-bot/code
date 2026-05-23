@@ -225,10 +225,69 @@ def _extract_json(text: str) -> dict:
     text = text.strip()
     try:
         return json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(
-            f"Claude response is not valid JSON.\nRaw response:\n{text[:2000]}"
-        ) from exc
+    except json.JSONDecodeError:
+        # Response may have been truncated mid-JSON — attempt repair
+        repaired = _repair_truncated_json(text)
+        try:
+            result = json.loads(repaired)
+            print("  ⚠  Response was truncated and auto-repaired. "
+                  "Some elements near the end may be missing — check the output.")
+            return result
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Claude response is not valid JSON and could not be repaired.\n"
+                f"Raw response (first 2000 chars):\n{text[:2000]}"
+            ) from exc
+
+
+def _repair_truncated_json(text: str) -> str:
+    """
+    Attempt to close a JSON object/array that was cut off mid-stream.
+    Strategy: strip the incomplete last entry, then close all open brackets/braces.
+    """
+    # Strip trailing comma + incomplete last entry by finding the last
+    # complete value (object or primitive) before a comma at the end.
+    # Walk back from the end to find a clean cut point.
+    cut = len(text)
+    # Remove anything after the last complete "}, " or "], " pattern
+    # by finding the last } or ] that is followed only by whitespace/commas/incomplete data
+    for i in range(len(text) - 1, -1, -1):
+        if text[i] in ('}', ']'):
+            cut = i + 1
+            break
+    text = text[:cut]
+
+    # Remove any trailing comma
+    text = text.rstrip().rstrip(',').rstrip()
+
+    # Count and close unclosed brackets/braces (ignoring those inside strings)
+    stack = []
+    in_string = False
+    escape_next = False
+    for ch in text:
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == '\\' and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch in ('{', '['):
+            stack.append(ch)
+        elif ch in ('}', ']'):
+            if stack:
+                stack.pop()
+
+    # Close in reverse order
+    closers = {'{': '}', '[': ']'}
+    for opener in reversed(stack):
+        text += closers[opener]
+
+    return text
 
 
 def analyse_pdf_all_pages(
@@ -263,7 +322,7 @@ def analyse_pdf_all_pages(
         client = anthropic.Anthropic(api_key=key)
         message = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=4096,
+            max_tokens=16000,
             messages=[
                 {
                     "role": "user",
