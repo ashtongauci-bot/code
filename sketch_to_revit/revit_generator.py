@@ -385,7 +385,7 @@ def write_revit_script(analysis: dict, output_path: str | None = None) -> str:
         levels_data="\n".join(level_rows),
     )
 
-    out.write_text(script)
+    out.write_text(script, encoding="utf-8")
     return str(out)
 
 
@@ -699,5 +699,5 @@ def write_revit_script_multifloor(
         floor_data_rows=",\n".join(floor_data_rows) + "\n",
     )
 
-    out.write_text(script)
+    out.write_text(script, encoding="utf-8")
     return str(out)
