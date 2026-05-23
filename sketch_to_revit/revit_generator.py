@@ -387,3 +387,317 @@ def write_revit_script(analysis: dict, output_path: str | None = None) -> str:
 
     out.write_text(script)
     return str(out)
+
+
+# ---------------------------------------------------------------------------
+# Multi-floor template (one sketch page per floor level)
+# ---------------------------------------------------------------------------
+
+_REVIT_MULTIFLOOR_TEMPLATE = '''\
+"""
+Revit Multi-Floor Structural Model — {scheme_name}
+Generated from {n_floors}-page sketch PDF by sketch_to_revit tool.
+Each page of the PDF was analysed separately as a distinct floor level.
+
+HOW TO RUN IN REVIT:
+  1. Open Revit. Ensure a Level exists for each floor in the project:
+{level_setup_comment}
+  2. Load families if not already present:
+       Structural Columns: Insert > Load Family > Structural > Columns > Concrete
+       Structural Framing: Insert > Load Family > Structural > Framing > Concrete
+  3. Open pyRevit Shell or Revit Python Shell.
+  4. Open this file and click Run.
+
+FLOORS IN THIS MODEL:
+{floor_summary_comment}
+
+⚠  PRELIMINARY STRUCTURAL SCHEME — NOT FOR CONSTRUCTION
+"""
+
+import clr
+clr.AddReference("RevitAPI")
+clr.AddReference("RevitAPIUI")
+
+from Autodesk.Revit.DB import (
+    FilteredElementCollector, FamilySymbol, Level, Line,
+    Transaction, XYZ, CurveLoop, CurveArray, Floor, FloorType,
+    BuiltInCategory
+)
+from Autodesk.Revit.DB.Structure import StructuralType
+
+try:
+    doc = __revit__.ActiveUIDocument.Document
+except NameError:
+    raise RuntimeError("Run this script inside pyRevit Shell or Revit Python Shell.")
+
+MM_TO_FT = 1.0 / 304.8
+
+# ---------------------------------------------------------------------------
+# Per-floor structural data
+# Each entry in FLOOR_DATA describes one floor level extracted from one sketch page.
+# columns: (id, x_m, y_m, width_mm, depth_mm)
+# beams:   (id, from_col_id, to_col_id, width_mm, depth_mm)
+# slab_boundary: [(x_m, y_m), ...]  clockwise or anticlockwise
+# ---------------------------------------------------------------------------
+FLOOR_DATA = [
+{floor_data_rows}]
+
+# ---------------------------------------------------------------------------
+# Utility functions
+# ---------------------------------------------------------------------------
+
+def m_to_xyz(x_m, y_m, z_m=0.0):
+    return XYZ(x_m * 3.28084, y_m * 3.28084, z_m * 3.28084)
+
+
+def find_symbol(doc, category_bic, preferred_keywords=None):
+    preferred_keywords = preferred_keywords or []
+    symbols = list(
+        FilteredElementCollector(doc)
+        .OfCategory(category_bic)
+        .OfClass(FamilySymbol)
+    )
+    if not symbols:
+        return None
+    for kw in preferred_keywords:
+        for sym in symbols:
+            if kw.lower() in (sym.Family.Name + " " + sym.Name).lower():
+                return sym
+    return symbols[0]
+
+
+def activate(doc, sym):
+    if sym and not sym.IsActive:
+        sym.Activate()
+        doc.Regenerate()
+
+
+def nearest_level(doc, elevation_m):
+    elevation_ft = elevation_m * 3.28084
+    levels = list(FilteredElementCollector(doc).OfClass(Level).ToElements())
+    if not levels:
+        return None
+    return min(levels, key=lambda lv: abs(lv.Elevation - elevation_ft))
+
+
+def set_param(inst, pairs_mm):
+    for pw, pv in pairs_mm:
+        p = inst.LookupParameter(pw)
+        if p and not p.IsReadOnly:
+            p.Set(pv * MM_TO_FT)
+            return
+
+
+# ---------------------------------------------------------------------------
+# Creation logic
+# ---------------------------------------------------------------------------
+
+def create_model(doc):
+    col_sym  = find_symbol(doc, BuiltInCategory.OST_StructuralColumns,
+                           ["concrete", "rect", "square", "rcc"])
+    beam_sym = find_symbol(doc, BuiltInCategory.OST_StructuralFraming,
+                           ["concrete", "rect", "rcc", "beam"])
+    floor_types = list(FilteredElementCollector(doc).OfClass(FloorType).ToElements())
+    floor_type  = floor_types[0] if floor_types else None
+
+    missing = []
+    if col_sym  is None: missing.append("Structural Column family")
+    if beam_sym is None: missing.append("Structural Framing family")
+    if not floor_types:  missing.append("Floor type in project")
+    if missing:
+        print("\\nERROR — load these first:")
+        for m in missing: print(f"  • {{m}}")
+        return
+
+    activate(doc, col_sym)
+    activate(doc, beam_sym)
+
+    stats = {{"cols": 0, "beams": 0, "slabs": 0, "errors": []}}
+
+    with Transaction(doc, "Sketch-to-Revit: Multi-Floor Structural Model") as t:
+        t.Start()
+
+        for floor in FLOOR_DATA:
+            lv_name   = floor["level_name"]
+            lv_elev_m = floor["elevation_m"]
+            columns   = floor["columns"]
+            beams     = floor["beams"]
+            boundary  = floor["slab_boundary"]
+            thick_mm  = floor["slab_thickness_mm"]
+
+            revit_level = nearest_level(doc, lv_elev_m)
+            if revit_level is None:
+                stats["errors"].append(f"No level found near {{lv_elev_m:.1f}} m ({{lv_name}})")
+                continue
+
+            col_pos = {{col_id: (x_m, y_m) for col_id, x_m, y_m, _w, _d in columns}}
+
+            # Columns
+            for col_id, x_m, y_m, w_mm, d_mm in columns:
+                try:
+                    loc = m_to_xyz(x_m, y_m, lv_elev_m)
+                    inst = doc.Create.NewFamilyInstance(
+                        loc, col_sym, revit_level, StructuralType.Column
+                    )
+                    set_param(inst, [("b", w_mm), ("h", d_mm),
+                                     ("Width", w_mm), ("Depth", d_mm)])
+                    stats["cols"] += 1
+                except Exception as ex:
+                    stats["errors"].append(f"Col {{col_id}} @ {{lv_name}}: {{ex}}")
+
+            # Beams
+            for bm_id, from_id, to_id, w_mm, d_mm in beams:
+                if from_id not in col_pos or to_id not in col_pos:
+                    stats["errors"].append(f"Beam {{bm_id}}: unknown col id")
+                    continue
+                try:
+                    sx, sy = col_pos[from_id]
+                    ex, ey = col_pos[to_id]
+                    sp = m_to_xyz(sx, sy, lv_elev_m)
+                    ep = m_to_xyz(ex, ey, lv_elev_m)
+                    if sp.DistanceTo(ep) < 0.01:
+                        continue
+                    inst = doc.Create.NewFamilyInstance(
+                        Line.CreateBound(sp, ep), beam_sym, revit_level, StructuralType.Beam
+                    )
+                    set_param(inst, [("b", w_mm), ("h", d_mm),
+                                     ("Width", w_mm), ("Depth", d_mm)])
+                    stats["beams"] += 1
+                except Exception as ex:
+                    stats["errors"].append(f"Beam {{bm_id}} @ {{lv_name}}: {{ex}}")
+
+            # Slab
+            if floor_type and len(boundary) >= 3:
+                try:
+                    pts = [m_to_xyz(x, y) for x, y in boundary]
+                    curve_loop = CurveLoop()
+                    for i in range(len(pts)):
+                        p1, p2 = pts[i], pts[(i + 1) % len(pts)]
+                        if p1.DistanceTo(p2) > 0.001:
+                            curve_loop.Append(Line.CreateBound(p1, p2))
+                    try:
+                        Floor.Create(doc, [curve_loop], floor_type.Id, revit_level.Id)
+                    except (AttributeError, TypeError):
+                        ca = CurveArray()
+                        for crv in curve_loop: ca.Append(crv)
+                        doc.Create.NewFloor(ca, floor_type, revit_level, True)
+                    stats["slabs"] += 1
+                except Exception as ex:
+                    stats["errors"].append(f"Slab @ {{lv_name}}: {{ex}}")
+
+        t.Commit()
+
+    print()
+    print("=" * 55)
+    print("MULTI-FLOOR MODEL CREATED")
+    print(f"  Columns : {{stats[\'cols\']}}")
+    print(f"  Beams   : {{stats[\'beams\']}}")
+    print(f"  Slabs   : {{stats[\'slabs\']}}")
+    if stats["errors"]:
+        print(f"  Errors  : {{len(stats[\'errors\'])}}")
+        for e in stats["errors"][:10]: print(f"    • {{e}}")
+    print()
+    print("⚠  PRELIMINARY — REQUIRES STRUCTURAL ENGINEER REVIEW")
+    print("=" * 55)
+
+
+create_model(doc)
+'''
+
+
+def write_revit_script_multifloor(
+    floor_analyses: list[dict],
+    output_path: str | None = None,
+    floor_to_floor_m: float = 3.5,
+) -> str:
+    """
+    Generate a pyRevit script from a list of per-floor sketch analyses.
+
+    Args:
+        floor_analyses:   List of analysis dicts from analyse_pdf_all_pages().
+                          Each must have a 'floor_index' and 'floor_name' key.
+        output_path:      Output .py path. Defaults to output/model_revit.py.
+        floor_to_floor_m: Fallback floor-to-floor height if not in analysis.
+
+    Returns:
+        Path to the written script.
+    """
+    out = Path(output_path) if output_path else Path("output") / "model_revit.py"
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    floor_data_rows = []
+    level_comments = []
+    floor_summary_lines = []
+
+    for fl in floor_analyses:
+        fl_idx  = fl.get("floor_index", 0)
+        fl_name = fl.get("floor_name", f"Level {fl_idx + 1}")
+        ftf     = fl.get("floor_to_floor_height_m", floor_to_floor_m)
+        elev_m  = round(fl_idx * ftf, 3)
+
+        columns  = fl.get("columns", [])
+        beams    = fl.get("beams", [])
+        slabs    = fl.get("slabs", [])
+        warnings = fl.get("warnings", [])
+
+        col_pos_map = {c["id"]: (c.get("x_m", 0.0), c.get("y_m", 0.0)) for c in columns}
+
+        # Build column tuples
+        col_tuples = []
+        for c in columns:
+            col_tuples.append(
+                f'        ("{c["id"]}", {c.get("x_m", 0.0):.3f}, {c.get("y_m", 0.0):.3f}, '
+                f'{c.get("section_width_mm", 500)}, {c.get("section_depth_mm", 500)})'
+            )
+
+        # Build beam tuples
+        bm_tuples = []
+        for b in beams:
+            bm_tuples.append(
+                f'        ("{b["id"]}", "{b.get("from_col", "")}", "{b.get("to_col", "")}", '
+                f'{b.get("width_mm", 400)}, {b.get("depth_mm", 600)})'
+            )
+
+        # Build slab boundary from first slab's boundary cols
+        slab_thick = 250
+        boundary_pts = []
+        if slabs:
+            sl = slabs[0]
+            slab_thick = sl.get("thickness_mm", 250)
+            for cid in sl.get("boundary_cols", []):
+                if cid in col_pos_map:
+                    x, y = col_pos_map[cid]
+                    boundary_pts.append(f"({x:.3f}, {y:.3f})")
+
+        col_str      = ",\n".join(col_tuples) or "        # none"
+        bm_str       = ",\n".join(bm_tuples)  or "        # none"
+        boundary_str = ", ".join(boundary_pts) or ""
+
+        floor_data_rows.append(
+            f'    {{\n'
+            f'        "level_name": "{fl_name}",\n'
+            f'        "elevation_m": {elev_m},\n'
+            f'        "columns": [\n{col_str}\n        ],\n'
+            f'        "beams": [\n{bm_str}\n        ],\n'
+            f'        "slab_boundary": [{boundary_str}],\n'
+            f'        "slab_thickness_mm": {slab_thick},\n'
+            f'    }}'
+        )
+
+        level_comments.append(f'#       {fl_name} at elevation {elev_m:.1f} m')
+        floor_summary_lines.append(
+            f'#   Page {fl_idx + 1} → {fl_name}  '
+            f'({len(columns)} cols, {len(beams)} beams)'
+            + (f'  ⚠ {warnings[0]}' if warnings else '')
+        )
+
+    script = _REVIT_MULTIFLOOR_TEMPLATE.format(
+        scheme_name=f"{len(floor_analyses)}-Floor Building",
+        n_floors=len(floor_analyses),
+        level_setup_comment="\n".join(level_comments),
+        floor_summary_comment="\n".join(floor_summary_lines),
+        floor_data_rows=",\n".join(floor_data_rows) + "\n",
+    )
+
+    out.write_text(script)
+    return str(out)

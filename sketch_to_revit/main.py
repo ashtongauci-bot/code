@@ -94,6 +94,28 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Anthropic API key (overrides ANTHROPIC_API_KEY env var).",
     )
+    parser.add_argument(
+        "--floor-names",
+        nargs="+",
+        metavar="NAME",
+        default=None,
+        help=(
+            'Names for each floor level, one per PDF page. '
+            'e.g. --floor-names "Ground Floor" "Level 1" "Roof"'
+        ),
+    )
+    parser.add_argument(
+        "--floor-height",
+        type=float,
+        default=None,
+        metavar="METRES",
+        help="Fallback floor-to-floor height in metres if not readable from sketches (default: 3.5).",
+    )
+    parser.add_argument(
+        "--single-page",
+        action="store_true",
+        help="Only analyse page 0, even for multi-page PDFs.",
+    )
     return parser.parse_args()
 
 
@@ -103,14 +125,29 @@ def main() -> None:
 
     api_key = args.api_key or os.environ.get("ANTHROPIC_API_KEY", "")
 
+    from sketch_analyzer import (
+        analyse_sketch, analyse_pdf_all_pages, pdf_page_count
+    )
+    from revit_generator import write_revit_script, write_revit_script_multifloor
+
+    ftf_fallback = args.floor_height or 3.5
+
     # ── 1. Get analysis ──────────────────────────────────────────────────
+    multifloor = False
+
     if args.reuse_analysis:
         analysis_path = Path(args.reuse_analysis)
         if not analysis_path.exists():
             sys.exit(f"ERROR: Analysis file not found: {args.reuse_analysis}")
         print(f"Reusing saved analysis → {analysis_path}")
         with open(analysis_path) as f:
-            analysis = json.load(f)
+            data = json.load(f)
+        # Detect whether saved data is a list (multi-floor) or dict (single)
+        if isinstance(data, list):
+            multifloor = True
+            floor_analyses = data
+        else:
+            analysis = data
 
     else:
         if not args.sketch:
@@ -122,45 +159,82 @@ def main() -> None:
         sketch_path = Path(args.sketch)
         if not sketch_path.exists():
             sys.exit(f"ERROR: Sketch file not found: {args.sketch}")
-
         if not api_key:
             sys.exit(
                 "ERROR: No Anthropic API key found.\n"
                 "  Set the ANTHROPIC_API_KEY environment variable, or use --api-key."
             )
 
-        print(f"Analysing sketch: {sketch_path.name}")
-        print("Sending to Claude vision…")
+        is_pdf = sketch_path.suffix.lower() == ".pdf"
+        is_multi = (
+            is_pdf
+            and not args.single_page
+            and pdf_page_count(str(sketch_path)) > 1
+        )
 
-        from sketch_analyzer import analyse_sketch
-        analysis = analyse_sketch(str(sketch_path), api_key=api_key)
+        if is_multi:
+            n = pdf_page_count(str(sketch_path))
+            print(f"Multi-page PDF detected ({n} pages) — analysing each page as a separate floor.")
+            floor_analyses = analyse_pdf_all_pages(
+                str(sketch_path),
+                api_key=api_key,
+                floor_names=args.floor_names,
+            )
+            multifloor = True
+        else:
+            print(f"Analysing sketch: {sketch_path.name}")
+            analysis = analyse_sketch(str(sketch_path), api_key=api_key)
 
     # ── 2. Print analysis summary ────────────────────────────────────────
     print()
-    print("SKETCH ANALYSIS RESULT")
-    print(f"  Sketch type:        {analysis.get('sketch_type', '?')}")
-    print(f"  Confidence:         {analysis.get('confidence', '?')}")
-    print(f"  Floors:             {analysis.get('num_floors', '?')}")
-    print(f"  Floor-to-floor:     {analysis.get('floor_to_floor_height_m', '?')} m")
-    print(f"  Columns extracted:  {len(analysis.get('columns', []))}")
-    print(f"  Beams extracted:    {len(analysis.get('beams', []))}")
-    print(f"  Slabs extracted:    {len(analysis.get('slabs', []))}")
-    if analysis.get("scale_notes"):
-        print(f"  Scale notes:        {analysis['scale_notes']}")
-    for w in analysis.get("warnings", []):
-        print(f"  ⚠  {w}")
+    if multifloor:
+        print("SKETCH ANALYSIS RESULT (multi-floor)")
+        total_cols = sum(len(f.get("columns", [])) for f in floor_analyses)
+        total_beams = sum(len(f.get("beams", [])) for f in floor_analyses)
+        for fl in floor_analyses:
+            name = fl.get("floor_name", f"Floor {fl.get('floor_index', 0) + 1}")
+            print(
+                f"  {name}: "
+                f"{len(fl.get('columns', []))} cols, "
+                f"{len(fl.get('beams', []))} beams, "
+                f"confidence={fl.get('confidence', '?')}"
+            )
+            for w in fl.get("warnings", []):
+                print(f"    ⚠  {w}")
+        print(f"  Total: {total_cols} columns, {total_beams} beams across {len(floor_analyses)} floors")
+    else:
+        print("SKETCH ANALYSIS RESULT")
+        print(f"  Sketch type:        {analysis.get('sketch_type', '?')}")
+        print(f"  Confidence:         {analysis.get('confidence', '?')}")
+        print(f"  Floors:             {analysis.get('num_floors', '?')}")
+        print(f"  Floor-to-floor:     {analysis.get('floor_to_floor_height_m', '?')} m")
+        print(f"  Columns extracted:  {len(analysis.get('columns', []))}")
+        print(f"  Beams extracted:    {len(analysis.get('beams', []))}")
+        print(f"  Slabs extracted:    {len(analysis.get('slabs', []))}")
+        if analysis.get("scale_notes"):
+            print(f"  Scale notes:        {analysis['scale_notes']}")
+        for w in analysis.get("warnings", []):
+            print(f"  ⚠  {w}")
 
     # ── 3. Optionally save analysis JSON ─────────────────────────────────
-    if args.save_analysis or args.reuse_analysis:
+    if args.save_analysis:
         analysis_out = Path("output") / "analysis.json"
         analysis_out.parent.mkdir(parents=True, exist_ok=True)
+        save_data = floor_analyses if multifloor else analysis
         with open(analysis_out, "w") as f:
-            json.dump(analysis, f, indent=2)
+            json.dump(save_data, f, indent=2)
         print(f"\nAnalysis JSON saved → {analysis_out}")
 
     # ── 4. Generate Revit script ─────────────────────────────────────────
-    from revit_generator import write_revit_script
-    script_path = write_revit_script(analysis, output_path=args.output)
+    if multifloor:
+        script_path = write_revit_script_multifloor(
+            floor_analyses,
+            output_path=args.output,
+            floor_to_floor_m=ftf_fallback,
+        )
+    else:
+        script_path = write_revit_script(analysis, output_path=args.output)
+
     print(f"\nRevit script written → {script_path}")
 
     print(_WHAT_NEXT.format(script_path=script_path))
