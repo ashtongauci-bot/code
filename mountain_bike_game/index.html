@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mountain Bike Madness</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #1a2238;
+    font-family: "Segoe UI", Arial, sans-serif;
+  }
+  canvas { display: block; }
+  #hud {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+    user-select: none;
+    pointer-events: none;
+  }
+  #hud .score { font-size: 28px; font-weight: bold; }
+  #hud .speed { font-size: 16px; opacity: 0.9; }
+  #trick {
+    position: absolute;
+    top: 18%;
+    width: 100%;
+    text-align: center;
+    color: #ffd166;
+    font-size: 36px;
+    font-weight: bold;
+    text-shadow: 0 3px 6px rgba(0,0,0,0.7);
+    opacity: 0;
+    transition: opacity 0.2s;
+    user-select: none;
+    pointer-events: none;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: rgba(10, 14, 30, 0.65);
+    text-align: center;
+    user-select: none;
+  }
+  #overlay h1 { font-size: 44px; margin: 0 0 10px; }
+  #overlay p { font-size: 18px; margin: 6px 0; opacity: 0.9; }
+  #overlay .key {
+    display: inline-block;
+    background: #333c5a;
+    border: 1px solid #5a6a9c;
+    border-radius: 6px;
+    padding: 2px 10px;
+    margin: 0 3px;
+    font-weight: bold;
+  }
+  #overlay .start { margin-top: 24px; font-size: 22px; color: #ffd166; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div class="score">Score: <span id="scoreVal">0</span></div>
+  <div class="speed"><span id="speedVal">0</span> km/h &nbsp;|&nbsp; Distance: <span id="distVal">0</span> m</div>
+</div>
+<div id="trick"></div>
+<div id="overlay">
+  <h1>&#x1F6B5; Mountain Bike Madness</h1>
+  <p><span class="key">&uarr;</span> Jump &nbsp; <span class="key">&darr;</span> Tuck (go faster on downhills)</p>
+  <p><span class="key">&larr;</span> <span class="key">&rarr;</span> Rotate in the air &mdash; land backflips for big points!</p>
+  <p>Land too crooked and you'll crash. Match the slope when you touch down.</p>
+  <p class="start">Press SPACE or any arrow key to ride</p>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const scoreEl = document.getElementById("scoreVal");
+const speedEl = document.getElementById("speedVal");
+const distEl = document.getElementById("distVal");
+const trickEl = document.getElementById("trick");
+const overlayEl = document.getElementById("overlay");
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+// ---------- Terrain ----------
+// Smooth rolling hills from layered sines; amplitude grows slowly with
+// distance so the ride gets gnarlier the further you go.
+function terrainHeight(x) {
+  const difficulty = 1 + Math.min(x / 14000, 1.6);
+  return (
+    Math.sin(x * 0.0021) * 110 * difficulty +
+    Math.sin(x * 0.0009 + 1.7) * 160 * difficulty +
+    Math.sin(x * 0.0052 + 4.1) * 38 +
+    Math.sin(x * 0.013 + 2.3) * 9
+  );
+}
+function terrainSlope(x) {
+  const d = 2;
+  return Math.atan2(terrainHeight(x + d) - terrainHeight(x - d), 2 * d);
+}
+
+// ---------- Game state ----------
+const GRAVITY = 1500;          // px/s^2
+const PEDAL_FORCE = 320;       // constant forward push while grounded
+const TUCK_BONUS = 520;        // extra downhill push while tucking
+const JUMP_POWER = 620;
+const ROTATE_ACCEL = 9.5;      // rad/s^2 while holding left/right in air
+const MAX_SPIN = 7.5;          // rad/s
+const CRASH_ANGLE = 1.15;      // rad mismatch with slope on landing = crash
+
+const keys = {};
+let started = false;
+
+const bike = {};
+function resetBike() {
+  bike.x = 200;
+  bike.y = 0;
+  bike.vx = 120;
+  bike.vy = 0;
+  bike.angle = 0;          // visual/physics rotation, radians
+  bike.spin = 0;           // angular velocity in air
+  bike.grounded = true;
+  bike.tucking = false;
+  bike.airRotation = 0;    // accumulated rotation this air time
+  bike.crashed = false;
+  bike.crashTimer = 0;
+  bike.score = 0;
+  bike.maxX = 200;
+  bike.y = baseY(bike.x);
+}
+function baseY(x) {
+  // world-space ground line: screen middle-ish plus terrain offset
+  return terrainHeight(x);
+}
+resetBike();
+
+let trickTimer = 0;
+function showTrick(text) {
+  trickEl.textContent = text;
+  trickEl.style.opacity = 1;
+  trickTimer = 1.4;
+}
+
+// ---------- Input ----------
+window.addEventListener("keydown", (e) => {
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
+    e.preventDefault();
+    if (!started) {
+      started = true;
+      overlayEl.classList.add("hidden");
+    } else if (bike.crashed && bike.crashTimer <= 0) {
+      resetBike();
+      return;
+    }
+  }
+  keys[e.key] = true;
+});
+window.addEventListener("keyup", (e) => { keys[e.key] = false; });
+
+// ---------- Physics ----------
+function update(dt) {
+  if (!started) return;
+
+  if (bike.crashed) {
+    bike.crashTimer -= dt;
+    // tumble to a stop
+    bike.vx *= 0.97;
+    bike.angle += bike.spin * dt;
+    bike.spin *= 0.96;
+    bike.x += bike.vx * dt;
+    const g = baseY(bike.x);
+    if (bike.y < g) {
+      bike.vy += GRAVITY * dt;
+      bike.y += bike.vy * dt;
+      if (bike.y > g) { bike.y = g; bike.vy = 0; }
+    } else {
+      bike.y = g;
+    }
+    return;
+  }
+
+  bike.tucking = !!keys["ArrowDown"];
+  const groundY = baseY(bike.x);
+  const slope = terrainSlope(bike.x);
+
+  if (bike.grounded) {
+    // Move along the slope. Gravity pulls along the tangent: speeds you up
+    // downhill, slows you uphill.
+    let speed = Math.hypot(bike.vx, bike.vy) * Math.sign(bike.vx || 1);
+    speed += (GRAVITY * Math.sin(slope) * 0.6 + PEDAL_FORCE) * dt;
+    if (bike.tucking) {
+      speed += (TUCK_BONUS * Math.max(Math.sin(slope), 0.12)) * dt;
+    }
+    // rolling resistance + air drag (tucking cuts drag)
+    const drag = bike.tucking ? 0.00018 : 0.00042;
+    speed -= speed * Math.abs(speed) * drag * dt;
+    speed = Math.max(speed, 40); // never fully stall
+
+    bike.vx = Math.cos(slope) * speed;
+    bike.vy = Math.sin(slope) * speed;
+    bike.x += bike.vx * dt;
+    bike.y = baseY(bike.x);
+
+    // ease the frame onto the slope
+    const target = terrainSlope(bike.x);
+    bike.angle += (target - bike.angle) * Math.min(12 * dt, 1);
+    bike.spin = 0;
+    bike.airRotation = 0;
+
+    // Jump
+    if (keys["ArrowUp"]) {
+      bike.grounded = false;
+      const tuckBoost = bike.tucking ? 1.25 : 1; // preload a tuck for bigger air
+      bike.vy -= JUMP_POWER * tuckBoost;
+    } else {
+      // launch naturally off a crest: if the ground falls away faster than
+      // gravity can keep up with at this speed, we're airborne
+      const ahead = baseY(bike.x + bike.vx * dt);
+      if (ahead - bike.y > Math.abs(bike.vx) * dt * 0.9 + 4) {
+        bike.grounded = false;
+      }
+    }
+  } else {
+    // Airborne
+    bike.vy += GRAVITY * dt;
+    bike.x += bike.vx * dt;
+    bike.y += bike.vy * dt;
+
+    // Rotation control: left = backflip (counter-clockwise on screen),
+    // right = frontflip
+    if (keys["ArrowLeft"])  bike.spin -= ROTATE_ACCEL * dt;
+    if (keys["ArrowRight"]) bike.spin += ROTATE_ACCEL * dt;
+    bike.spin = Math.max(-MAX_SPIN, Math.min(MAX_SPIN, bike.spin));
+    if (!keys["ArrowLeft"] && !keys["ArrowRight"]) bike.spin *= Math.pow(0.4, dt);
+    bike.angle += bike.spin * dt;
+    bike.airRotation += bike.spin * dt;
+
+    // Landing
+    const g = baseY(bike.x);
+    if (bike.y >= g) {
+      bike.y = g;
+      const slopeNow = terrainSlope(bike.x);
+      // normalize angle mismatch to [-PI, PI]
+      let diff = (bike.angle - slopeNow) % (Math.PI * 2);
+      if (diff > Math.PI) diff -= Math.PI * 2;
+      if (diff < -Math.PI) diff += Math.PI * 2;
+
+      if (Math.abs(diff) > CRASH_ANGLE) {
+        bike.crashed = true;
+        bike.crashTimer = 0.8;
+        bike.spin = (Math.random() - 0.5) * 10;
+        bike.vx *= 0.4;
+        showTrick("CRASHED! press any key");
+      } else {
+        bike.grounded = true;
+        bike.angle = slopeNow + diff * 0.3;
+        // score flips
+        const flips = Math.floor(Math.abs(bike.airRotation) / (Math.PI * 2));
+        if (flips > 0) {
+          const back = bike.airRotation < 0;
+          const pts = flips * (back ? 500 : 400) * flips; // combos scale up
+          bike.score += pts;
+          showTrick(
+            (flips > 1 ? flips + "x " : "") +
+            (back ? "BACKFLIP" : "FRONTFLIP") + "! +" + pts
+          );
+        }
+        // keep momentum along the slope
+        const speed = Math.hypot(bike.vx, bike.vy) * 0.92;
+        bike.vx = Math.cos(slopeNow) * speed;
+        bike.vy = Math.sin(slopeNow) * speed;
+      }
+      bike.airRotation = 0;
+    }
+  }
+
+  // distance score
+  if (bike.x > bike.maxX) {
+    bike.score += (bike.x - bike.maxX) * 0.05;
+    bike.maxX = bike.x;
+  }
+}
+
+// ---------- Rendering ----------
+function worldToScreen(wx, wy, camX, camY) {
+  return [wx - camX + W * 0.32, wy - camY + H * 0.55];
+}
+
+function drawBackground(camX) {
+  // sky
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#6ec6ff");
+  sky.addColorStop(0.6, "#bfe3ff");
+  sky.addColorStop(1, "#e8f4ff");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // sun
+  ctx.fillStyle = "rgba(255, 240, 180, 0.9)";
+  ctx.beginPath();
+  ctx.arc(W * 0.78, H * 0.18, 46, 0, Math.PI * 2);
+  ctx.fill();
+
+  // two parallax mountain layers
+  drawMountainLayer(camX * 0.2, "#9db4c9", H * 0.42, 220, 0.0016);
+  drawMountainLayer(camX * 0.45, "#7a93ad", H * 0.55, 160, 0.0024);
+}
+function drawMountainLayer(off, color, baseLine, amp, freq) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let sx = 0; sx <= W; sx += 8) {
+    const wx = sx + off;
+    const y = baseLine + Math.sin(wx * freq) * amp * 0.5 +
+              Math.sin(wx * freq * 2.7 + 3) * amp * 0.25;
+    ctx.lineTo(sx, y);
+  }
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawTerrain(camX, camY) {
+  ctx.beginPath();
+  let first = true;
+  for (let sx = -20; sx <= W + 20; sx += 6) {
+    const wx = sx + camX - W * 0.32;
+    const wy = baseY(wx);
+    const sy = wy - camY + H * 0.55;
+    if (first) { ctx.moveTo(sx, sy); first = false; }
+    else ctx.lineTo(sx, sy);
+  }
+  ctx.lineTo(W + 20, H + 20);
+  ctx.lineTo(-20, H + 20);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, H * 0.3, 0, H);
+  grad.addColorStop(0, "#4caf50");
+  grad.addColorStop(0.25, "#3d8b40");
+  grad.addColorStop(1, "#5d4037");
+  ctx.fillStyle = grad;
+  ctx.fill();
+  // grass edge
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = "#66bb6a";
+  ctx.stroke();
+}
+
+function drawBike(camX, camY) {
+  const [sx, sy] = worldToScreen(bike.x, bike.y, camX, camY);
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.rotate(bike.angle);
+
+  const tuck = bike.tucking && !bike.crashed ? 1 : 0;
+  const wheelR = 13;
+  const wb = 46; // wheelbase
+
+  // wheels
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#222";
+  for (const wx of [-wb / 2, wb / 2]) {
+    ctx.beginPath();
+    ctx.arc(wx, -wheelR, wheelR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#555";
+    ctx.beginPath();
+    ctx.arc(wx, -wheelR, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // frame
+  ctx.strokeStyle = "#e53935";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(-wb / 2, -wheelR);
+  ctx.lineTo(-6, -wheelR - 16);     // seat tube top
+  ctx.lineTo(14, -wheelR - 18);     // top tube to head tube
+  ctx.lineTo(wb / 2, -wheelR);      // fork
+  ctx.moveTo(-6, -wheelR - 16);
+  ctx.lineTo(4, -wheelR - 2);       // down to bottom bracket
+  ctx.lineTo(-wb / 2, -wheelR);     // chain stay
+  ctx.moveTo(4, -wheelR - 2);
+  ctx.lineTo(14, -wheelR - 18);
+  ctx.stroke();
+  // handlebar
+  ctx.beginPath();
+  ctx.moveTo(14, -wheelR - 18);
+  ctx.lineTo(18, -wheelR - 26);
+  ctx.stroke();
+
+  // rider — crouches when tucking
+  const hipY = -wheelR - 24 + tuck * 8;
+  const headY = -wheelR - 52 + tuck * 16;
+  const headX = 4 + tuck * 8;
+  ctx.strokeStyle = "#1565c0";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(-8, hipY);             // hip
+  ctx.lineTo(headX - 2, headY + 10); // torso
+  ctx.stroke();
+  // arm to bars
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(headX - 2, headY + 14);
+  ctx.lineTo(18, -wheelR - 26);
+  ctx.stroke();
+  // legs to pedals
+  ctx.beginPath();
+  ctx.moveTo(-8, hipY);
+  ctx.lineTo(0, -wheelR - 8 + tuck * 2);
+  ctx.lineTo(4, -wheelR - 2);
+  ctx.stroke();
+  // head + helmet
+  ctx.fillStyle = "#ffcc80";
+  ctx.beginPath();
+  ctx.arc(headX, headY, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#f44336";
+  ctx.beginPath();
+  ctx.arc(headX, headY - 1, 8.5, Math.PI * 0.95, Math.PI * 2.05);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ---------- Main loop ----------
+let camX = bike.x, camY = bike.y;
+let last = performance.now();
+
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 1 / 30);
+  last = now;
+
+  update(dt);
+
+  // smooth camera
+  camX += (bike.x - camX) * Math.min(6 * dt, 1);
+  camY += (bike.y - camY) * Math.min(4 * dt, 1);
+
+  drawBackground(camX);
+  drawTerrain(camX, camY);
+  drawBike(camX, camY);
+
+  // HUD
+  scoreEl.textContent = Math.floor(bike.score);
+  speedEl.textContent = Math.floor(Math.hypot(bike.vx, bike.vy) * 0.18);
+  distEl.textContent = Math.floor((bike.x - 200) / 10);
+
+  if (trickTimer > 0) {
+    trickTimer -= dt;
+    if (trickTimer <= 0 && !bike.crashed) trickEl.style.opacity = 0;
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
