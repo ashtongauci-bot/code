@@ -1,0 +1,40 @@
+<figure class="record" aria-labelledby="record-cap">
+ <div class="record-sheet">
+  <div class="record-top"><span>Sample condition record</span><span>North elevation, neighbouring dwelling</span></div>
+  <svg class="record-svg" viewBox="0 0 560 400" role="img" aria-label="Line drawing of a brick wall with a window and door. Three existing cracks are marked D1, D2 and D3.">
+   <defs>
+    <pattern id="brick" width="40" height="16" patternUnits="userSpaceOnUse">
+     <path d="M0 .5H40M0 8.5H40M.5 0V8M20.5 8V16" stroke="var(--mortar)" stroke-width="1" fill="none"/>
+    </pattern>
+   </defs>
+   <rect x="30" y="30" width="500" height="320" fill="var(--wall)"/>
+   <rect x="30" y="30" width="500" height="320" fill="url(#brick)"/>
+   <rect x="30" y="30" width="500" height="320" fill="none" stroke="var(--ink)" stroke-width="2"/>
+   <g fill="var(--glass)" stroke="var(--ink)" stroke-width="2">
+    <rect x="100" y="100" width="130" height="104"/>
+    <rect x="340" y="150" width="84" height="200"/>
+   </g>
+   <path d="M165 100V204M100 152H230" stroke="var(--ink)" stroke-width="1.5"/>
+   <rect x="92" y="204" width="146" height="8" fill="var(--ink)"/>
+   <rect x="330" y="142" width="104" height="8" fill="var(--ink)"/>
+   <g class="cracks" fill="none" stroke="var(--crack)" stroke-width="2.25" stroke-linejoin="bevel">
+    <path d="M238 212h6v16h12v16h8v16h14v16h6v16h10v16"/>
+    <path d="M412 142l4-12-2-10 6-14 1-14 5-12"/>
+    <path d="M58 350l3-14-4-10 6-12-1-12 5-10"/>
+   </g>
+   <g class="marks" font-family="Archivo, sans-serif" font-size="13" font-weight="700" text-anchor="middle">
+    <g><circle cx="304" cy="268" r="15" fill="var(--paint)" stroke="var(--ink)" stroke-width="1.5"/><text x="304" y="273" fill="var(--ink)">D1</text></g>
+    <g><circle cx="452" cy="96" r="15" fill="var(--paint)" stroke="var(--ink)" stroke-width="1.5"/><text x="452" y="101" fill="var(--ink)">D2</text></g>
+    <g><circle cx="94" cy="300" r="15" fill="var(--paint)" stroke="var(--ink)" stroke-width="1.5"/><text x="94" y="305" fill="var(--ink)">D3</text></g>
+   </g>
+   <path d="M20 350H540" stroke="var(--ink)" stroke-width="3"/>
+   <g stroke="var(--ink)" stroke-width="1.5"><path d="M30 376H130M30 370V382M80 372V380M130 370V382"/></g>
+   <text x="140" y="381" font-family="Archivo, sans-serif" font-size="12" fill="var(--ink)">1 m</text>
+  </svg>
+  <ol class="record-log" id="record-cap">
+   <li><b>D1</b> Stepped crack through mortar from window sill, 1.5&nbsp;mm max.</li>
+   <li><b>D2</b> Hairline crack above door lintel, under 0.2&nbsp;mm.</li>
+   <li><b>D3</b> Vertical crack at wall base, 0.5&nbsp;mm, earlier patch visible.</li>
+  </ol>
+ </div>
+</figure>

@@ -1,0 +1,45 @@
+# Netlify: no build step. The site/ folder is pre-built by build.py and committed.
+[build]
+  publish = "site"
+  command = ""
+
+# Old Wix URLs -> new pages (keeps any Google ranking from the old site)
+[[redirects]]
+  from = "/services"
+  to = "/#reports"
+  status = 301
+[[redirects]]
+  from = "/contact"
+  to = "/quote/"
+  status = 301
+[[redirects]]
+  from = "/home"
+  to = "/"
+  status = 301
+[[redirects]]
+  from = "/website/*"
+  to = "/:splat"
+  status = 301
+[[redirects]]
+  from = "/structural-*"
+  to = "/"
+  status = 301
+
+# www -> apex
+[[redirects]]
+  from = "https://www.iiengineer.com/*"
+  to = "https://iiengineer.com/:splat"
+  status = 301
+  force = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "SAMEORIGIN"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+[[headers]]
+  for = "/styles.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

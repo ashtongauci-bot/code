@@ -1,0 +1,55 @@
+<form class="quote-form" name="quote" method="POST" action="/thanks/" data-netlify="true" netlify-honeypot="company_website" enctype="multipart/form-data">
+ <input type="hidden" name="form-name" value="quote">
+ <p class="hp"><label>Leave this empty <input name="company_website" tabindex="-1" autocomplete="off"></label></p>
+ <fieldset>
+  <legend>About you</legend>
+  <div class="f-row">
+   <p class="f"><label for="q-name">Your name</label><input id="q-name" name="name" autocomplete="name" required></p>
+   <p class="f"><label for="q-role">You are the</label>
+    <select id="q-role" name="role">
+     <option>Builder or developer</option>
+     <option>Property owner</option>
+     <option>Neighbour of a building site</option>
+     <option>Council, utility or civil contractor</option>
+     <option>Other</option>
+    </select></p>
+  </div>
+  <div class="f-row">
+   <p class="f"><label for="q-email">Email</label><input id="q-email" name="email" type="email" autocomplete="email" required></p>
+   <p class="f"><label for="q-phone">Phone</label><input id="q-phone" name="phone" type="tel" autocomplete="tel" required></p>
+  </div>
+ </fieldset>
+ <fieldset>
+  <legend>The job</legend>
+  <p class="f"><label for="q-address">Site address</label><input id="q-address" name="site_address" autocomplete="street-address" placeholder="Street, suburb" required></p>
+  <div class="f-row">
+   <p class="f"><label for="q-type">Report needed</label>
+    <select id="q-type" name="report_type" required>
+     <option value="">Choose one</option>
+     <option>Pre-construction (before works start)</option>
+     <option>Post-construction (after works finish)</option>
+     <option>Both, pre and post</option>
+     <option>Not sure yet</option>
+    </select></p>
+   <p class="f"><label for="q-count">Properties to inspect</label><input id="q-count" name="property_count" type="number" min="1" max="200" inputmode="numeric" placeholder="e.g. 3"><span class="hint">Include the neighbours your council conditions name.</span></p>
+  </div>
+  <div class="f-row">
+   <p class="f"><label for="q-works">Works planned</label>
+    <select id="q-works" name="works_type">
+     <option value="">Choose one</option>
+     <option>Demolition</option>
+     <option>Excavation or basement</option>
+     <option>New house or duplex</option>
+     <option>Swimming pool</option>
+     <option>Piling or rock breaking</option>
+     <option>Multi-unit or commercial build</option>
+     <option>Road, drainage or civil works</option>
+     <option>Other</option>
+    </select></p>
+   <p class="f"><label for="q-date">Works start (approx.)</label><input id="q-date" name="works_start" type="date"></p>
+  </div>
+  <p class="f"><label for="q-notes">Anything else we should know</label><textarea id="q-notes" name="notes" rows="4" placeholder="DA or CDC number, access arrangements, council condition wording"></textarea></p>
+  <p class="f"><label for="q-file">Plans or council conditions (optional)</label><input id="q-file" name="attachment" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"><span class="hint">PDF or image, up to 8 MB.</span></p>
+ </fieldset>
+ <p class="f-submit"><button class="btn btn-paint btn-big" type="submit">Send quote request</button><span class="hint">We reply with a fixed fee and available inspection dates. Prefer to talk? Call <a href="tel:{{PHONE_TEL}}">{{PHONE}}</a>.</span></p>
+</form>
