@@ -35,10 +35,7 @@ clear message, and push to the same branch.
 - Placeholders available in content: `{{PHONE}}`, `{{PHONE_TEL}}`, `{{EMAIL}}`, `{{CTA}}`,
   `{{AREA_LIST}}`, `{{SYDNEY_LIST}}`, `{{ILLAWARRA_LIST}}`, `{{QUOTE_FORM}}`.
 - Area pages need `"region": "sydney"` or `"region": "illawarra"` and an `order` number.
-- Photos: real inspection photos live in `static/photos/` (`<name>-1600.jpg` and `-800.jpg`).
-  Insert with `{{PHOTO:name|alt text|caption}}`. Only use photos already in that folder; never
-  use stock images or photos showing house numbers, number plates or people. Reusing a photo on
-  a new page is fine. Captions must describe what's shown without naming a street or address.
+- No photos on the site (Ash's decision). Don't add any images, stock or otherwise.
 - The logo is in `brand/` and `static/logo*.png`. Don't change it.
 - Never edit files in `site/` by hand; always run `python3 build.py`.
 
@@ -131,4 +128,4 @@ published and what people in the area search for) and carry on.
 ## Changelog
 
 - 2026-10-18 — Site launched: home, quote form, 5 area pages, 3 articles.
-- 2026-10-18 — New logo, phone 0450 787 971, 8 Sydney area pages, real inspection photos.
+- 2026-10-18 — New logo, phone 0450 787 971, 8 Sydney area pages. (Real photos added then removed at Ash's request.)
