@@ -10,7 +10,7 @@
   "postcode": "",
   "credentials": "CPEng, NER",
   "credentials_long": "Chartered Professional Engineer (CPEng, NER) with professional indemnity insurance",
-  "area_served": ["Wollongong", "Shellharbour", "Kiama", "Shoalhaven", "Illawarra", "Sydney", "Sutherland Shire", "St George", "Inner West", "Eastern Suburbs", "North Shore", "Parramatta", "Canterbury-Bankstown", "Macarthur"],
+  "area_served": ["Wollongong", "Shellharbour", "Kiama", "Shoalhaven", "Illawarra", "Sydney", "Sutherland Shire", "St George", "Inner West", "Eastern Suburbs", "North Shore", "Northern Beaches", "Parramatta", "Canterbury-Bankstown", "Macarthur"],
   "abn_line": "",
   "launch_date": "2026-10-18",
   "css_version": "6"
