@@ -78,7 +78,7 @@ def business_schema():
         "telephone": c["phone_intl"],
         "email": c["email"],
         "image": BASE + "/og.png",
-        "logo": BASE + "/favicon.svg",
+        "logo": BASE + "/logo.png",
         "description": c["tagline"],
         "address": {"@type": "PostalAddress", "addressLocality": c["locality"],
                     "addressRegion": "NSW", "postalCode": c["postcode"], "addressCountry": "AU"},
@@ -89,13 +89,39 @@ def business_schema():
     }
 
 
-def area_links(current=None):
+def area_links(current=None, region=None):
     out = []
     for a in areas:
-        if a["slug"] == current:
+        if a["slug"] == current or (region and a.get("region") != region):
             continue
         out.append(f'<li><a href="{href(a["slug"])}">{esc(a["nav_label"])}</a></li>')
     return '<ul class="area-list">' + "".join(out) + "</ul>"
+
+
+REGIONS = [("illawarra", "Wollongong, Illawarra and South Coast"), ("sydney", "Sydney")]
+
+
+def area_groups(current=None):
+    cols = []
+    for key, label in REGIONS:
+        cols.append(f'<div class="area-group"><h3>{label}</h3>{area_links(current, key)}</div>')
+    return '<div class="area-groups">' + "".join(cols) + "</div>"
+
+
+def footer_areas():
+    keep = [a for a in areas if a.get("region") == "illawarra" or a["slug"] == "areas/sydney"]
+    return '<ul class="area-list">' + "".join(
+        f'<li><a href="{href(a["slug"])}">{esc(a["nav_label"])}</a></li>' for a in keep) + "</ul>"
+
+
+def photo(name, alt, caption="", cls=""):
+    from PIL import Image  # only used at build time
+    w, h = Image.open(ROOT / "static" / "photos" / f"{name}-1600.jpg").size
+    cap = f"<figcaption>{caption}</figcaption>" if caption else ""
+    return (f'<figure class="photo {cls}"><img src="/photos/{name}-1600.jpg" '
+            f'srcset="/photos/{name}-800.jpg 800w, /photos/{name}-1600.jpg 1600w" '
+            f'sizes="(min-width: 900px) 760px, 100vw" width="{w}" height="{h}" '
+            f'alt="{esc(alt)}" loading="lazy" decoding="async">{cap}</figure>')
 
 
 def article_cards(limit=None, exclude=None):
@@ -150,7 +176,9 @@ def fill(body, ctx_slug=None):
     reps = {
         "{{QUOTE_FORM}}": FORM,
         "{{WALL_SVG}}": WALL,
-        "{{AREA_LIST}}": area_links(ctx_slug),
+        "{{AREA_LIST}}": area_groups(ctx_slug),
+        "{{SYDNEY_LIST}}": area_links(ctx_slug, "sydney"),
+        "{{ILLAWARRA_LIST}}": area_links(ctx_slug, "illawarra"),
         "{{ARTICLE_LIST}}": article_cards(),
         "{{ARTICLE_LIST_3}}": article_cards(3, ctx_slug),
         "{{PHONE}}": CFG["phone_display"],
@@ -160,6 +188,11 @@ def fill(body, ctx_slug=None):
     }
     for k, v in reps.items():
         body = body.replace(k, v)
+    # {{PHOTO:name|alt text|caption|class}}
+    def ph(m):
+        parts = (m.group(1).split("|") + ["", "", ""])[:4]
+        return photo(*parts)
+    body = re.sub(r"\{\{PHOTO:(.*?)\}\}", ph, body)
     return body
 
 
@@ -182,7 +215,7 @@ def render(meta):
         main = (f'<article class="doc">{crumbs_html(trail)}<header class="doc-head"><h1>{esc(meta["h1"])}</h1>'
                 f'<p class="lede">{esc(meta["intro"])}</p></header>'
                 f'<div class="prose">{body}</div>{faq_html(meta.get("faq"))}</article>'
-                f'{fill(CTA_RAW)}<section class="band"><div class="wrap"><h2>Other areas we cover</h2>{area_links(slug)}</div></section>')
+                f'{fill(CTA_RAW)}<section class="band"><div class="wrap"><h2>Other areas we cover</h2>{area_groups(slug)}</div></section>')
     elif kind == "articles":
         trail += [("Articles", url("articles")), (meta["h1"], canonical)]
         graph.append({"@type": "Article", "headline": meta["h1"], "description": meta["description"],
@@ -237,7 +270,7 @@ def render(meta):
 <meta property="og:locale" content="en_AU">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#062B52">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -252,6 +285,7 @@ def render(meta):
 <header class="site-head">
  <div class="wrap head-row">
   <a class="brand" href="/" aria-label="{esc(CFG["name"])} home">
+   <img class="brand-logo" src="/logo-mark-white.png" width="72" height="120" alt="">
    <span class="wordmark"><span class="wm-1">Integrity Inspecting</span><span class="wm-2">Engineers</span></span>
   </a>
   <nav class="main-nav" aria-label="Main"><ul>{nav_html}</ul></nav>
@@ -267,8 +301,8 @@ def render(meta):
 <footer class="site-foot">
  <div class="wrap foot-grid">
   <div>
-   <p class="foot-name wordmark foot-wm"><span class="wm-1">Integrity Inspecting</span><span class="wm-2">Engineers</span></p>
-   <p>Dilapidation reports by a {esc(CFG["credentials_long"])}. Based in {esc(CFG["locality"])}, covering the Illawarra, Shoalhaven and Sydney.</p>
+   <div class="foot-brand"><img src="/logo-mark-white.png" width="72" height="120" alt="IIE logo"><p class="wordmark foot-wm"><span class="wm-1">Integrity Inspecting</span><span class="wm-2">Engineers</span></p></div>
+   <p>Dilapidation reports by a {esc(CFG["credentials_long"])}. Based in {esc(CFG["locality"])}, covering Wollongong, the Illawarra, the Shoalhaven and Sydney.</p>
   </div>
   <div>
    <p class="foot-h">Contact</p>
@@ -276,7 +310,7 @@ def render(meta):
   </div>
   <div>
    <p class="foot-h">Areas</p>
-   {area_links()}
+   {footer_areas()}
   </div>
   <div>
    <p class="foot-h">Site</p>

@@ -2,16 +2,16 @@
   "name": "Integrity Inspecting Engineers",
   "short_name": "IIE",
   "url": "https://iiengineer.com",
-  "tagline": "Pre- and post-construction dilapidation reports across the Illawarra, Shoalhaven and Sydney, prepared by a Chartered Professional Engineer.",
-  "phone_display": "0401 439 389",
-  "phone_intl": "+61401439389",
+  "tagline": "Pre- and post-construction dilapidation reports across Wollongong, the Illawarra, the Shoalhaven and Sydney, prepared by a Chartered Professional Engineer.",
+  "phone_display": "0450 787 971",
+  "phone_intl": "+61450787971",
   "email": "info@iiengineer.com",
   "locality": "Oak Flats",
   "postcode": "2529",
   "credentials": "CPEng, NER",
   "credentials_long": "Chartered Professional Engineer (CPEng, NER) with professional indemnity insurance",
-  "area_served": ["Wollongong", "Shellharbour", "Kiama", "Shoalhaven", "Sydney", "Illawarra"],
+  "area_served": ["Wollongong", "Shellharbour", "Kiama", "Shoalhaven", "Illawarra", "Sydney", "Sutherland Shire", "St George", "Inner West", "Eastern Suburbs", "North Shore", "Parramatta", "Canterbury-Bankstown", "Macarthur"],
   "abn_line": "",
   "launch_date": "2026-10-18",
-  "css_version": "2"
+  "css_version": "3"
 }

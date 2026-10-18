@@ -26,7 +26,7 @@ class P(HTMLParser):
         if tag == "link" and a.get("rel") == "canonical": self.canonical = a.get("href")
         if tag == "h1": self.h1 += 1
         if tag == "a" and a.get("href"): self.links.append(a["href"])
-        if tag == "img" and not a.get("alt"): self.imgs_no_alt += 1
+        if tag == "img" and "alt" not in a: self.imgs_no_alt += 1
         if tag == "script" and a.get("type") == "application/ld+json": self.in_ld = True; self.ld.append("")
 
     def handle_endtag(self, tag):
