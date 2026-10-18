@@ -254,3 +254,17 @@ p { margin: 0 0 1em; }
   .wm-1 { font-size: .74rem; letter-spacing: .04em; } .wm-2 { font-size: .5rem; }
   .brand-logo { height: 34px; }
 }
+
+/* smaller wordmark: the logo leads */
+.site-head .brand-logo { height: 52px; }
+.site-head .wm-1 { font-size: .74rem; letter-spacing: .05em; }
+.site-head .wm-2 { font-size: .48rem; letter-spacing: .5em; margin-right: -.5em; }
+.site-head .wordmark { gap: 4px; opacity: .92; }
+.foot-brand img { height: 72px; }
+.foot-brand .wm-1 { font-size: .72rem; }
+.foot-brand .wm-2 { font-size: .46rem; }
+@media (max-width: 480px) {
+  .site-head .brand-logo { height: 42px; }
+  .site-head .wm-1 { font-size: .62rem; } .site-head .wm-2 { font-size: .42rem; }
+}
+@media (max-width: 380px) { .site-head .wordmark { display: none; } }
