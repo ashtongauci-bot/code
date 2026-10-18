@@ -80,8 +80,8 @@ def business_schema():
         "image": BASE + "/og.png",
         "logo": BASE + "/logo.png",
         "description": c["tagline"],
-        "address": {"@type": "PostalAddress", "addressLocality": c["locality"],
-                    "addressRegion": "NSW", "postalCode": c["postcode"], "addressCountry": "AU"},
+        "address": {"@type": "PostalAddress", "addressLocality": "Wollongong",
+                    "addressRegion": "NSW", "addressCountry": "AU"},
         "areaServed": [{"@type": "Place", "name": a} for a in c["area_served"]],
         "knowsAbout": ["Dilapidation reports", "Pre-construction dilapidation inspections",
                        "Post-construction dilapidation inspections", "Structural engineering"],
@@ -302,7 +302,7 @@ def render(meta):
  <div class="wrap foot-grid">
   <div>
    <div class="foot-brand"><img src="/logo-mark-white.png" width="72" height="120" alt="IIE logo"><p class="wordmark foot-wm"><span class="wm-1">Integrity Inspecting</span><span class="wm-2">Engineers</span></p></div>
-   <p>Dilapidation reports by a {esc(CFG["credentials_long"])}. Based in {esc(CFG["locality"])}, covering Wollongong, the Illawarra, the Shoalhaven and Sydney.</p>
+   <p>Dilapidation reports by a {esc(CFG["credentials_long"])}. Based in Wollongong and Sydney, covering the Illawarra, the Shoalhaven and all of Greater Sydney.</p>
   </div>
   <div>
    <p class="foot-h">Contact</p>
