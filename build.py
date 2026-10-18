@@ -236,7 +236,7 @@ def render(meta):
 <meta property="og:image" content="{BASE}/og.png">
 <meta property="og:locale" content="en_AU">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#1D2B33">
+<meta name="theme-color" content="#062B52">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -252,8 +252,7 @@ def render(meta):
 <header class="site-head">
  <div class="wrap head-row">
   <a class="brand" href="/" aria-label="{esc(CFG["name"])} home">
-   <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="3" fill="var(--slate)"/><path d="M8 24V8M14 24V8M20 8l4 8-4 8" stroke="var(--paint)" stroke-width="3" fill="none" stroke-linecap="square"/></svg>
-   <span class="brand-name">Integrity Inspecting Engineers</span>
+   <span class="wordmark"><span class="wm-1">Integrity Inspecting</span><span class="wm-2">Engineers</span></span>
   </a>
   <nav class="main-nav" aria-label="Main"><ul>{nav_html}</ul></nav>
   <div class="head-cta">
@@ -268,7 +267,7 @@ def render(meta):
 <footer class="site-foot">
  <div class="wrap foot-grid">
   <div>
-   <p class="foot-name">Integrity Inspecting Engineers</p>
+   <p class="foot-name wordmark foot-wm"><span class="wm-1">Integrity Inspecting</span><span class="wm-2">Engineers</span></p>
    <p>Dilapidation reports by a {esc(CFG["credentials_long"])}. Based in {esc(CFG["locality"])}, covering the Illawarra, Shoalhaven and Sydney.</p>
   </div>
   <div>
