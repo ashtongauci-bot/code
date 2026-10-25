@@ -61,7 +61,7 @@ clear message, and push to the same branch.
 - [x] Dilapidation reports for swimming pool excavation
 - [x] Pre- vs post-construction dilapidation reports
 - [x] What to do if your neighbour's building work cracks your house
-- [ ] Dilapidation reports for demolition: what builders need before the excavator arrives
+- [x] Dilapidation reports for demolition: what builders need before the excavator arrives
 - [ ] Rock breaking and vibration: protecting neighbouring homes on Illawarra sites
 - [ ] How to read a dilapidation report (with a sample defect schedule explained)
 - [ ] Should a neighbour let the builder's engineer inspect their home?
@@ -100,7 +100,7 @@ clear message, and push to the same branch.
 Alternate between Sydney and Wollongong/Illawarra each week (Ash covers both equally).
 
 - [x] Northern Beaches (areas/northern-beaches) — sydney
-- [ ] Dapto (areas/dapto) — illawarra
+- [x] Dapto (areas/dapto) — illawarra
 - [ ] Ryde and Hunters Hill (areas/ryde) — sydney
 - [ ] Thirroul and the Northern Suburbs (areas/northern-suburbs-wollongong) — illawarra
 - [ ] Liverpool and Fairfield (areas/liverpool) — sydney
@@ -130,3 +130,4 @@ published and what people in the area search for) and carry on.
 - 2026-10-18 — Site launched: home, quote form, 5 area pages, 3 articles.
 - 2026-10-18 — New logo, phone 0450 787 971, 8 Sydney area pages. (Real photos added then removed at Ash's request.)
 - 2026-10-18 — Weekly: article "What to do if your neighbour's building work cracks your house", Northern Beaches area page; internal links from North Shore, two articles, Sydney hub and home FAQ.
+- 2026-10-25 — Weekly: article "Dilapidation reports for demolition", Dapto and West Dapto area page; internal links from Wollongong, Shellharbour, St George and two articles; Dapto added to site.json area_served.
