@@ -62,7 +62,7 @@ clear message, and push to the same branch.
 - [x] Pre- vs post-construction dilapidation reports
 - [x] What to do if your neighbour's building work cracks your house
 - [x] Dilapidation reports for demolition: what builders need before the excavator arrives
-- [ ] Rock breaking and vibration: protecting neighbouring homes on Illawarra sites
+- [x] Rock breaking and vibration: protecting neighbouring homes on Illawarra sites
 - [ ] How to read a dilapidation report (with a sample defect schedule explained)
 - [ ] Should a neighbour let the builder's engineer inspect their home?
 - [ ] Dilapidation reports for strata buildings next to a development
@@ -101,7 +101,7 @@ Alternate between Sydney and Wollongong/Illawarra each week (Ash covers both equ
 
 - [x] Northern Beaches (areas/northern-beaches) — sydney
 - [x] Dapto (areas/dapto) — illawarra
-- [ ] Ryde and Hunters Hill (areas/ryde) — sydney
+- [x] Ryde and Hunters Hill (areas/ryde) — sydney
 - [ ] Thirroul and the Northern Suburbs (areas/northern-suburbs-wollongong) — illawarra
 - [ ] Liverpool and Fairfield (areas/liverpool) — sydney
 - [ ] Wollongong CBD (areas/wollongong-cbd) — illawarra
@@ -131,3 +131,4 @@ published and what people in the area search for) and carry on.
 - 2026-10-18 — New logo, phone 0450 787 971, 8 Sydney area pages. (Real photos added then removed at Ash's request.)
 - 2026-10-18 — Weekly: article "What to do if your neighbour's building work cracks your house", Northern Beaches area page; internal links from North Shore, two articles, Sydney hub and home FAQ.
 - 2026-10-25 — Weekly: article "Dilapidation reports for demolition", Dapto and West Dapto area page; internal links from Wollongong, Shellharbour, St George and two articles; Dapto added to site.json area_served.
+- 2026-11-01 — Weekly: article "Rock breaking and vibration on Illawarra sites", Ryde and Hunters Hill area page; internal links from Kiama, Wollongong, pool article and home page (article) and North Shore, Parramatta, Inner West and Sydney hub FAQ (area); Ryde and Hunters Hill added to site.json area_served.
